@@ -38,7 +38,7 @@ When the name of the parameters is between pipe, it can match anything as long a
 (foofoobar) (// x: foo)
 (foobar) (// x: )
 ```
-The follonwing lines will be the same.
+The following lines will not be matched.
 ```lisp
 (foofoba) 
 ```
