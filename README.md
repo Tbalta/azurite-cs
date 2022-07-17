@@ -9,6 +9,9 @@ You can also clone the standard library from: https://github.com/Azurite-Languag
 ## Usage
 basic usage:
 ```lisp
+(macro "//" ())
+// Without this line comment will not be recognize.
+
 (import "stdlib/stdmath/std_math")
 (// Import all translates defineds in std_math)
 
