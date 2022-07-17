@@ -584,7 +584,7 @@ namespace Azurite
                         }
                         else
                         {
-                            if (arguments[i].has_data || MyFormal.ListLevelType(MyFormal.GetStupidType(arguments[i], instruction.proto.ElementAt(i).Value.Value)[0]) == 0)
+                            if (arguments[i].has_data)
                             {
                                 end = "";
                                 start = "";
