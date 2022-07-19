@@ -79,3 +79,19 @@ The following lines will not be matched:
 (+ 2 3 5) (// There is too much arguments)
 (+ 2) (// There is not enough arguments)
 ```
+### List
+__forget arity embrace parenthesis__
+```lisp
+(translate ("list" a...) ("any") (azur "" "{a}"))
+```
+Those exressions will be matched:
+```lisp
+(list (1 2 3))
+(list 1)
+(list (1))
+```
+The following lines will not be matched:
+```lisp
+(list)
+(list 1 2 3)
+```

@@ -35,17 +35,18 @@ namespace Azurite
         }
 
 
-        private static string Tokenize(string token, Directive.MATCH_LEVEL level){
+        private static string Tokenize(string token, Directive.MATCH_LEVEL level)
+        {
             switch (level)
             {
                 case MATCH_LEVEL.EXACT:
-                    return "\"" +token +"\"";
+                    return "\"" + token + "\"";
                 case MATCH_LEVEL.STRICT:
-                    return "'" +token +"'";
+                    return "'" + token + "'";
                 case MATCH_LEVEL.LIST:
-                    return token +"...";
+                    return token + "...";
                 case MATCH_LEVEL.CALLABLE:
-                    return "[" +token +"]";
+                    return "[" + token + "]";
                 default:
                     return token;
             }
@@ -78,14 +79,16 @@ namespace Azurite
                 this.import == instruction.import &&
                 this.proto == instruction.proto &&
                 this.effect == instruction.effect;
-            public override string ToString(){
+            public override string ToString()
+            {
                 string to_return = "(";
-                foreach(KeyValuePair<string, KeyValuePair<MATCH_LEVEL, string>> entry  in proto){
-                    to_return += Directive.Tokenize(entry.Key, entry.Value.Key)+" ";
+                foreach (KeyValuePair<string, KeyValuePair<MATCH_LEVEL, string>> entry in proto)
+                {
+                    to_return += Directive.Tokenize(entry.Key, entry.Value.Key) + " ";
                 }
                 return to_return.TrimEnd() + ")";
             }
-        
+
         }
 
 
@@ -297,12 +300,12 @@ namespace Azurite
                 MATCH_LEVEL level = arguments[i].Value;
                 string arg_type = "";
                 if (level == MATCH_LEVEL.EXACT || level == MATCH_LEVEL.PARTIAL)
-                   // offset++;
-                   type.Insert(i, "");
+                    // offset++;
+                    type.Insert(i, "");
 
                 else
                     arg_type = type[i - offset];
-                if(proto.ContainsKey(name))
+                if (proto.ContainsKey(name))
                     throw new Azurite.Ezception(505, "Two parameters have the same name");
                 proto.Add(name, new KeyValuePair<MATCH_LEVEL, string>(level, arg_type));
             }
@@ -354,7 +357,7 @@ namespace Azurite
             }
             try
             {
-            effect = effect.Replace("<eval " + text + ">", Transpiler.Convert(Azurite.MacroApply(expression), language));
+                effect = effect.Replace("<eval " + text + ">", Transpiler.Convert(Azurite.MacroApply(expression), language));
             }
             catch (Azurite.Ezception e)
             {
@@ -472,9 +475,10 @@ namespace Azurite
             Instruction instruction = Match(language, arguments, type);
             if (instruction.proto == null)
                 return null;
-            if(Transpiler.track_recursion){
-                if(Transpiler.numberNames.Contains(expression.Stringify()))
-                    throw new Azurite.Ezception(506, "stack overflow " + expression.Stringify() + " match with " +instruction.ToString());
+            if (Transpiler.track_recursion)
+            {
+                if (Transpiler.numberNames.Contains(expression.Stringify()))
+                    throw new Azurite.Ezception(506, "stack overflow " + expression.Stringify() + " match with " + instruction.ToString());
                 Transpiler.numberNames.Add(expression.Stringify());
             }
 
@@ -533,14 +537,9 @@ namespace Azurite
                         effect = effect.Replace("{" + instruction.proto.ElementAt(i).Key + "}", arguments[i].data);
                         break;
                     case MATCH_LEVEL.LIST:
-
-
-
                         string name = instruction.proto.ElementAt(i).Key;
                         Regex replacement = new Regex("{" + name + @" (\\}|[^}])*}");
-
                         // Get the separator, end and start of the list.
-                        // Regex parameter = new Regex(@"\'[^\']*\'");
 
                         string text_to_replace = replacement.Match(effect).Value.Replace("\\}", "}");
                         text_to_replace = text_to_replace.Substring(name.Length + 1, text_to_replace.Length - (name.Length + 2));
@@ -549,9 +548,6 @@ namespace Azurite
                         List<Parser.SExpression> parameters = body.LoadAllChild();
                         if (parameters.Count < 2 && parameters.Count > 4)
                             throw new Exception("bad parameters in list");
-
-                        List<Parser.SExpression> args;
-
 
 
                         string separator = Transpiler.Convert(parameters[1], language).Replace("\\x20", " ");
@@ -563,7 +559,7 @@ namespace Azurite
                             end = Transpiler.Convert(parameters[3], language);
                         }
 
-                        args = new List<Parser.SExpression>();
+                        List<Parser.SExpression> args = new List<Parser.SExpression>();
 
                         if (type != null && MyFormal.GetStupidType(arguments[i])[0] == type)
                         {
@@ -580,18 +576,14 @@ namespace Azurite
                         else if (arguments.Count > instruction.proto.Count)
                         {
                             args = arguments.GetRange(instruction.proto.Count - 1, arguments.Count - instruction.proto.Count + 1);
-
+                        }
+                        else if (arguments[i].has_data)
+                        {
+                            args = new List<Parser.SExpression>() { arguments[i] };
                         }
                         else
                         {
-                            if (arguments[i].has_data)
-                            {
-                                end = "";
-                                start = "";
-                                args = new List<Parser.SExpression>() { arguments[i] };
-                            }
-                            else
-                                args = arguments[i].LoadAllChild();
+                            args = arguments[i].LoadAllChild();
                         }
 
                         List<string> evaluate_arg = new List<string>();

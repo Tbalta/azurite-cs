@@ -54,12 +54,12 @@ namespace Azurite
             }
 
             string output = "";
-            do
-            {
-                reType = false;
-                output = GetType(childs[3], "", childs[1].data);
-                reType = reType && new List<string>(parametersType.Values).TrueForAll(elmt => elmt == "" || Formal.is_polymorphic(elmt));
-            } while (reType);
+            // do
+            // {
+            //     reType = false;
+            //     output = GetType(childs[3], "", childs[1].data);
+            //     reType = reType && new List<string>(parametersType.Values).TrueForAll(elmt => elmt == "" || Formal.is_polymorphic(elmt));
+            // } while (reType);
 
             List<string> type = new List<string>(parametersType.Values);
 
