@@ -555,7 +555,14 @@ namespace Azurite
                         // Get the separator, end and start of the list.
 
                         string text_to_replace = replacement.Match(effect).Value.Replace("\\}", "}");
+                        try
+                        {
                         text_to_replace = text_to_replace.Substring(name.Length + 1, text_to_replace.Length - (name.Length + 2));
+                        }
+                        catch (System.ArgumentOutOfRangeException)
+                        {
+                            throw new Azurite.Ezception(505, $"no body for parameter: {name} in \"{effect}\"");
+                        }
 
                         Parser.SExpression body = new Parser.SExpression(text_to_replace);
                         List<Parser.SExpression> parameters = body.LoadAllChild();
