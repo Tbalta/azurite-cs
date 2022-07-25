@@ -19,16 +19,18 @@ namespace Azurite
         /// <returns>Return the expression converted in the language.</returns>
         public static string Convert(Parser.SExpression expression, string language, string type = null)
         {
-            
+
             //If no child then return the data fo the current expression if there is data.
             if (expression.first() == null)
                 return (expression.data == "NULL") ? "" : expression.data;
             if (expression.first().data == Langconfig.function_name)
-                MyFormal.SetContextFunc(expression);
+                FormalReborn.SetContextFunc(expression);
 
 
             // Try to find some translate in the expression and convert them into string.
             string test = Directive.Execute(language, expression, type);
+            if (expression.first().data == Langconfig.function_name)
+                FormalReborn.ExitContextFunc();
             if (test != null)
                 return test;
 
@@ -41,7 +43,10 @@ namespace Azurite
                 throw new Azurite.Ezception(501, $"No translate found in {language}", expression.Stringify());
 
             }
-            return Convert(expression.first(), language);
+            var result = Convert(expression.first(), language);
+            if (expression.first().data == Langconfig.function_name)
+                FormalReborn.ExitContextFunc();
+            return result;
 
         }
         public static string Convert(string input, string language, string type = null)
@@ -49,7 +54,8 @@ namespace Azurite
             return Transpiler.Convert(new Parser.SExpression(input), language, type);
         }
 
-        public static void ResetTracking(){
+        public static void ResetTracking()
+        {
             numberNames = new HashSet<string>();
         }
 

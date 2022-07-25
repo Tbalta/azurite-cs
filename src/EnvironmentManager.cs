@@ -51,7 +51,7 @@ namespace Azurite
 
         public static void LoadVar(string name, Parser.SExpression var)
         {
-            Lexer.add_to_globals(new Lexer.Symbol(name, Formal.type_of(var)));
+            // Lexer.add_to_globals(new Lexer.Symbol(name, Formal(var)));
             variables.Add(name, Compiler.Compile(var));
         }
 

@@ -107,20 +107,20 @@ namespace Azurite
                 List<string> temp = new List<string>();
                 if (!ast.has_data && ast.first().has_data && ast.first().data == Langconfig.function_name)
                 {
-                    temp = MyFormal.GetStupidType(ast);
+                    temp = FormalReborn.GetType(ast);
 
                 }
                 else
                 {
-                    temp = MyFormal.GetStupidType(ast);
+                    temp = FormalReborn.GetType(ast);
                 }
-                if (temp.Count == 0 || (temp.Count == 1 && Formal.is_polymorphic(temp[0]) && Formal.is_variadic(temp[0])))
+                if (temp.Count == 0 || (temp.Count == 1 && FormalReborn.is_polymorphic(temp[0]) && FormalReborn.is_variadic(temp[0])))
                 {
-                    writeRed($"Type : {Tools.get_pretty_type(temp) }");
+                    writeRed($"Type : {Tools.get_pretty_type(temp)}");
                 }
                 else
                 {
-                    writeGreen($"Type : {Tools.get_pretty_type(temp) }");
+                    writeGreen($"Type : {Tools.get_pretty_type(temp)}");
                 }
             }
 
@@ -174,7 +174,7 @@ namespace Azurite
                             {
                                 Azurite.Load(new Parser.SExpression(ast), ast.Stringify());
                                 // if (!ast.has_data)
-                                //     MyFormal.GetStupidType(ast);
+                                //     FormalReborn.GetType(ast);
                                 WriteOutput(ast);
                                 /*Console.WriteLine($"Tree : ");
                                 ast.PrettyPrint();
@@ -240,8 +240,6 @@ namespace Azurite
                             }
                             else
                             {
-                                if (!ast.has_data)
-                                    Formal.descendent_verification(ast, "#1");
                                 /*Console.WriteLine($"Tree : ");
                                 ast.PrettyPrint();
                                 Console.WriteLine(Tools.get_pretty_type(Formal.type_of(ast)));*/
@@ -271,7 +269,7 @@ namespace Azurite
                         else
                         {
                             if (!ast.has_data)
-                                MyFormal.GetStupidType(ast);
+                                FormalReborn.GetType(ast);
                             // Formal.descendent_verification(ast, "#1");
                             /*Console.WriteLine($"Tree : ");
                             ast.PrettyPrint();
@@ -313,8 +311,6 @@ namespace Azurite
                             }
                             else
                             {
-                                if (!ast.has_data)
-                                    Formal.descendent_verification(ast);
                                 WriteOutput(ast, language_name);
                                 /*Console.WriteLine($"Tree : ");
                                 ast.PrettyPrint();
@@ -340,8 +336,6 @@ namespace Azurite
                         }
                         else
                         {
-                            if (!ast.has_data)
-                                Formal.descendent_verification(ast);
                             WriteOutput(ast, language_name);
                             /*Console.WriteLine($"Tree : ");
                             ast.PrettyPrint();

@@ -95,7 +95,7 @@ namespace Azurite
 
         public static List<Expression> expressions_list = new List<Expression>();
         private static List<Ezception> errors_list = new List<Ezception>();
-        
+
         public static List<string> debug_list = new List<string>();
         public static bool DEBUG = false;
 
@@ -189,12 +189,12 @@ namespace Azurite
         public static void Load(Parser.SExpression arbre, string line = "")
         {
             Expression expression = new Expression(MacroApply(arbre), line);
-
             if (!Process(expression))
             {
                 // if (Langconfig.compilation == "1")
                 //     expression.arbre = Compiler.FoldingExpression(expression.arbre);
                 // MyFormal.GetStupidType(expression.arbre);
+                FormalReborn.GetType(arbre);
                 expressions_list.Add(expression);
             }
             else if (Azurite.DEBUG)
@@ -236,7 +236,7 @@ namespace Azurite
             if (arbre.first().data == Langconfig.translate_name)
             {
                 Directive.LoadInstruction(arbre.second(), filename);
-                if(Azurite.DEBUG)
+                if (Azurite.DEBUG)
                     debug_list.Add(arbre.Stringify());
                 return true;
             }
@@ -244,8 +244,6 @@ namespace Azurite
             if (arbre.first().data == Langconfig.function_name && arbre.first() != null)
             {
                 Directive.known_token.Add(arbre.second().first().data);
-                // Formal.type_of_func(arbre);
-                MyFormal.GetFunctionType(arbre);
                 expressions_list.Add(expression);
                 if (Langconfig.compilation == "1")
                     EnvironmentManager.LoadFunc(arbre.second());
@@ -296,7 +294,7 @@ namespace Azurite
         {
             expression = MacroManager.Execute(expression);
             // if(Azurite.DEBUG)
-                // debug_list.Add(expression.Stringify());
+            // debug_list.Add(expression.Stringify());
             return expression;
         }
 
@@ -419,7 +417,7 @@ namespace Azurite
                 System.Environment.Exit(1);
             }
 
-            if(Azurite.DEBUG)
+            if (Azurite.DEBUG)
                 conversion.AddRange(debug_list);
 
             for (int i = 0; i < conversion.Count; i++)
@@ -478,11 +476,11 @@ namespace Azurite
         private static void DisplayError(Ezception error)
         {
             if (error == null)
-                return;    
+                return;
             TextWriter errorWriter = Console.Error;
             errorWriter.WriteLine($"{error.code} {error.Message} at line {error.index}: {error.text}");
             DisplayError(error.get_InnerException());
-            
+
         }
         public static void DisplayError()
         {

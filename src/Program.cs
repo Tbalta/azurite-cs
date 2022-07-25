@@ -703,10 +703,34 @@ namespace Azurite
 
             }
 
-            // public static implicit operator Dictionary<object, object>(SExpression v)
-            // {
-            //     throw new NotImplementedException();
-            // }
+
+            /// <summary>
+            /// Return true if the token contained in the S-expression is a callable.
+            /// </summary>
+            /// <returns>Return true if the token contained in the S-expression is a callable.</returns>
+            public bool isCallable()
+            {
+                return this.has_data && Directive.known_token.Contains(this.data);
+            }
+
+            /// <summary>
+            /// Return true if the S-expression respect the match level of a proto.
+            /// </summary>
+            /// <param name="proto">The proto to match</param>
+            public bool matchProto(KeyValuePair<string, KeyValuePair<Directive.MATCH_LEVEL, string>> proto)
+            {
+                if (proto.Value.Key == Directive.MATCH_LEVEL.LIGHT || proto.Value.Key == Directive.MATCH_LEVEL.LIST)
+                    return true;
+                if (proto.Value.Key == Directive.MATCH_LEVEL.STRICT)
+                    return this.has_data;
+                if (proto.Value.Key == Directive.MATCH_LEVEL.EXACT)
+                    return this.data == proto.Key;
+                if (proto.Value.Key == Directive.MATCH_LEVEL.PARTIAL)
+                    return Directive.CheckPartialMatch(proto.Key, this.data);
+                if (proto.Value.Key == Directive.MATCH_LEVEL.CALLABLE)
+                    return this.isCallable();
+                return false;
+            }
 
         }
 

@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace Azurite
 {
-
+    using Formal = FormalReborn;
 
     ///<summary>
     /// Directive is the class wich handle the translate.
@@ -51,6 +51,7 @@ namespace Azurite
                     return token;
             }
         }
+
         /// <summary>An instruction represent the way to convert a specific set of keyword into another language </summary>
         public struct Instruction
         {
@@ -91,11 +92,30 @@ namespace Azurite
 
         }
 
-
-
+        public static List<Dictionary<string, KeyValuePair<MATCH_LEVEL, string>>> protoList = new List<Dictionary<string, KeyValuePair<MATCH_LEVEL, string>>>();
         public static List<List<Instruction>> instructions_list = new List<List<Instruction>>();
-        private static List<string> imports_list = new List<string>();
+        public static List<string> imports_list = new List<string>();
 
+        private static bool SexpressionMatch(Parser.SExpression expression, Dictionary<string, KeyValuePair<MATCH_LEVEL, string>> proto)
+        {
+            var childs = expression.LoadAllChild();
+            if (childs.Count() != proto.Count())
+                return false;
+
+            var index = 0;
+            foreach (var child in childs)
+            {
+                if (!child.matchProto(proto.ElementAt(index)))
+                    return false;
+                index++;
+            }
+            return true;
+        }
+
+        public static List<Dictionary<string, KeyValuePair<MATCH_LEVEL, string>>> find_matching_proto(Parser.SExpression expression)
+        {
+            return protoList.Where(x => SexpressionMatch(expression, x)).ToList();
+        }
         /// <summary>
         /// It's the list of the token wich are known callable.
         /// </summary>
@@ -126,7 +146,7 @@ namespace Azurite
             instructions_list[Azurite.LanguageHandler.getLanguageIndex(language)].Add(instruction);
         }
 
-        private static bool CheckPartialMatch(string instruction_name, string argument_name)
+        public static bool CheckPartialMatch(string instruction_name, string argument_name)
         {
             if (argument_name == null)
                 return false;
@@ -154,9 +174,9 @@ namespace Azurite
 
             return
             (forced != null && (instruc_type == forced)) ||
-            (!args_later && expr.Count > 1 && (instruc_type == "any" || (MyFormal.IsEquivalent(MyFormal.GetType(expr[index], instruc_type), instruc_type)))) ||
+            (!args_later && expr.Count > 1 && (instruc_type == "any" || (FormalReborn.IsEquivalent(FormalReborn.GetType(expr[index]).Last(), instruc_type)))) ||
             ((args_later || expr.Count == 1) && (instruc_type == "any" || (expr.GetRange(index, expr.Count - index - 1).TrueForAll(elem =>
-                           MyFormal.IsEquivalent(MyFormal.GetType(elem) + "...", instruc_type)))));
+                           FormalReborn.IsEquivalent(FormalReborn.GetType(elem) + "...", instruc_type)))));
 
 
         }
@@ -166,8 +186,9 @@ namespace Azurite
         /// <param name="arguments"> The list of arguments </param>
         /// <return> Return the corresponding instruction of an arguments if no found return Instruction with only null </return>
         /// </summary>
-        private static Instruction Match(string lang, List<Parser.SExpression> arguments, string forced = null)
+        private static Instruction Match(string lang, Parser.SExpression expression, string forced = null)
         {
+            var arguments = expression.LoadAllChild();
             foreach (Instruction instruction in instructions_list[Azurite.LanguageHandler.getLanguageIndex(lang)])
             {
                 Func<int, KeyValuePair<string, KeyValuePair<MATCH_LEVEL, string>>> getProto = index => instruction.proto.ElementAt(index);
@@ -177,16 +198,7 @@ namespace Azurite
                     int i = 0;
                     bool isLast = i == instruction.proto.Count - 1 && i != arguments.Count - 1;
 
-                    while (i < instruction.proto.Count && (
-                            (getProto(i).Value.Key == MATCH_LEVEL.EXACT && getProto(i).Key == arguments[i].data) ||
-                            (getProto(i).Value.Key == MATCH_LEVEL.PARTIAL && CheckPartialMatch(getProto(i).Key, arguments[i].data)) ||
-                            (getProto(i).Value.Key == MATCH_LEVEL.LIST && CheckList(arguments, i, getProto(i).Value.Value, forced, isLast)) ||
-                            (getProto(i).Value.Key == MATCH_LEVEL.CALLABLE && known_token.Contains(arguments[i].data)) ||
-                            (
-                                ((getProto(i).Value.Key == MATCH_LEVEL.STRICT && arguments[i].has_data) ||
-                                (getProto(i).Value.Key == MATCH_LEVEL.LIGHT)) &&
-                                (getProto(i).Value.Value == "any" || Formal.is_polymorphic(getProto(i).Value.Value) ||
-                                getProto(i).Value.Value == MyFormal.GetType(arguments[i])))))
+                    while (i < instruction.proto.Count && arguments[i].matchProto(getProto(i)) && FormalReborn.compare_type(getProto(i).Value.Value, FormalReborn.GetType(arguments[i]).Last()))
                     {
 
                         i++;
@@ -309,6 +321,7 @@ namespace Azurite
                     throw new Azurite.Ezception(505, "Two parameters have the same name");
                 proto.Add(name, new KeyValuePair<MATCH_LEVEL, string>(level, arg_type));
             }
+            protoList.Add(proto);
             Lexer.add_to_globals(new Lexer.Symbol(arguments[0].Key, type));
 
             // Loading all the language definition.
@@ -453,7 +466,7 @@ namespace Azurite
             {
                 if (i != index && instruction.proto.ElementAt(i).Value.Value == item.Value.Value)
                 {
-                    List<string> type = MyFormal.GetStupidType(expression[i]);
+                    List<string> type = FormalReborn.GetType(expression[i]);
                     Lexer.add_to_globals(new Lexer.Symbol(expression[index].data, type));
                 }
             }
@@ -472,7 +485,7 @@ namespace Azurite
             List<Parser.SExpression> arguments = expression.LoadAllChild();
             List<string> forced_type = new List<string>();
 
-            Instruction instruction = Match(language, arguments, type);
+            Instruction instruction = Match(language, expression, type);
             if (instruction.proto == null)
                 return null;
             if (Transpiler.track_recursion)
@@ -507,14 +520,14 @@ namespace Azurite
                 List<string> expresionType = new List<string>();
                 if (effect.Contains("$" + instruction.proto.ElementAt(i).Key + "$"))
                 {
-                    expresionType = MyFormal.GetStupidType(arguments[i]);
+                    expresionType = FormalReborn.GetType(arguments[i]);
                     effect = effect.Replace("$" + instruction.proto.ElementAt(i).Key + "$",
                     Transpiler.Convert($"({expresionType[expresionType.Count - 1]})", language));
                 }
                 if (effect.Contains("^" + instruction.proto.ElementAt(i).Key + "^"))
                 {
                     if (expresionType.Count == 0)
-                        expresionType = MyFormal.GetStupidType(arguments[i]);
+                        expresionType = FormalReborn.GetType(arguments[i]);
                     effect = effect.Replace("^" + instruction.proto.ElementAt(i).Key + "^",
                     String.Join(" ", expresionType.Select(type => Transpiler.Convert($"({type})", language))));
                 }
@@ -526,12 +539,12 @@ namespace Azurite
                         offset++;
                         break;
                     case MATCH_LEVEL.CALLABLE:
-                        Lexer.Symbol symbo = Lexer.GetSymbol(Lexer.globals, arguments[i].data);
+                        Lexer.Symbol symbo = Lexer.GetSymbol(arguments[i].data);
                         if (symbo == null)
                             throw new Azurite.Ezception(503, "call to function before definition");
                         forced_type = symbo.type;
-                        MyFormal.GetStupidType(expression);
-                        effect = effect.Replace($"@{instruction.proto.ElementAt(i).Key}@", (Lexer.GetSymbol(Lexer.globals, arguments[i].data).type.Count - 1).ToString());
+                        FormalReborn.GetType(expression);
+                        effect = effect.Replace($"@{instruction.proto.ElementAt(i).Key}@", (Lexer.GetSymbol(arguments[i].data).type.Count - 1).ToString());
                         goto case MATCH_LEVEL.STRICT;
                     case MATCH_LEVEL.STRICT:
                         effect = effect.Replace("{" + instruction.proto.ElementAt(i).Key + "}", arguments[i].data);
@@ -561,7 +574,7 @@ namespace Azurite
 
                         List<Parser.SExpression> args = new List<Parser.SExpression>();
 
-                        if (type != null && MyFormal.GetStupidType(arguments[i])[0] == type)
+                        if (type != null && FormalReborn.GetType(arguments[i])[0] == type)
                         {
                             args.Add(arguments[i]);
                             if (arguments.Count > forced_type.Count)
@@ -577,7 +590,7 @@ namespace Azurite
                         {
                             args = arguments.GetRange(instruction.proto.Count - 1, arguments.Count - instruction.proto.Count + 1);
                         }
-                        else if (arguments[i].has_data)
+                        else if (arguments[i].has_data && arguments[i].data != "NULL")
                         {
                             args = new List<Parser.SExpression>() { arguments[i] };
                         }

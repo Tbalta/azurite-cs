@@ -1,16 +1,18 @@
 using System.Collections.Generic;
 using System.Xml.Serialization;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Azurite
 {
 
     using UniqueSymbolTable = List<Lexer.Symbol>;
-
+    using LexerLayer = Stack<List<Lexer.Symbol>>;
     public class Lexer
     {
-
-        public class Symbol
+        public static LexerLayer localsLayer = new LexerLayer();
+        public static LexerLayer globalsLayer = new LexerLayer();
+        public class Symbol : IComparable<Symbol>
         {
             //private string _symbol;
             public string symbol
@@ -52,6 +54,28 @@ namespace Azurite
                 polymorphic_level++;
                 return $"#{polymorphic_level - 1}";
             }
+
+            public int CompareTo(object obj)
+            {
+                if (obj is Symbol)
+                {
+                    return symbol.CompareTo(((Symbol)obj).symbol);
+                }
+                else
+                {
+                    return symbol.CompareTo(obj.ToString());
+                }
+            }
+
+            public int CompareTo([AllowNull] Symbol other)
+            {
+                if (other == null)
+                {
+                    return 1;
+                }
+                return symbol.CompareTo(other.symbol);
+            }
+
             public static uint polymorphic_level = 0;
         }
 
@@ -66,69 +90,106 @@ namespace Azurite
             return table.Find(x => x.symbol == data);
         }
 
+        internal static void removeTemporaryLayer(LexerLayer layer)
+        {
+            layer.Pop();
+        }
+
+        public static Symbol GetSymbol(LexerLayer layer, string data)
+        {
+            foreach (var table in layer)
+            {
+                var symbol = GetSymbol(table, data);
+                if (symbol != null)
+                    return symbol;
+            }
+            return null;
+        }
+
+        public static Symbol GetSymbol(string data)
+        {
+            var symbol = GetSymbol(localsLayer, data);
+            if (symbol == null)
+                symbol = GetSymbol(globalsLayer, data);
+            return symbol;
+        }
+
+
         /// <summary>
         /// Return true if the table contains the specified symbol
         /// </summary>
-        /// <param name="table">The table to search in</param>
+        /// <param name="layer">The layer search in</param>
+        /// <param name="data">The keyword of the symbol</param>
+        public static bool ContainSymbol(LexerLayer layers, string data)
+        {
+            foreach (var table in layers)
+            {
+                if (GetSymbol(table, data) != null)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Return true if the table contains the specified symbol
+        /// </summary>
+        /// <param name="table">The table search in</param>
         /// <param name="data">The keyword of the symbol</param>
         public static bool ContainSymbol(UniqueSymbolTable table, string data)
         {
-            return table.Exists(x => x.symbol == data);
+            return table.Find(x => x.symbol == data) != null;
         }
 
         public static bool IsToken(string data)
         {
-            return ContainSymbol(builtins, data) || ContainSymbol(locals, data) || ContainSymbol(globals, data);
+            return ContainSymbol(builtins, data) || ContainSymbol(localsLayer, data) || ContainSymbol(globalsLayer, data);
         }
         public static UniqueSymbolTable builtins;
-        public static UniqueSymbolTable globals;
-        public static UniqueSymbolTable locals;
+
+        /// <summary>
+        /// Add a new symbol table in which the new symbol will be stored.
+        /// </summary>
+        internal static void addTemporaryLayer(LexerLayer linked_table)
+        {
+            linked_table.Push(new UniqueSymbolTable());
+        }
+
+
+
+        // public static UniqueSymbolTable globals;
+        // public static UniqueSymbolTable locals;
 
         public static void init_builtins()
         {
+            globalsLayer.Push(new UniqueSymbolTable());
+            localsLayer.Push(new UniqueSymbolTable());
             builtins = new UniqueSymbolTable();
-            globals = new UniqueSymbolTable();
-            locals = new UniqueSymbolTable();
             builtins.Add(new Symbol(Langconfig.function_name));
-            //builtins.Add(new Symbol(Langconfig.macro_name));
-            //builtins.Add(new Symbol("match"));
-            //builtins.Add(new Symbol(Langconfig.function_name));
-
-            // builtins.Add(new Symbol("if", new List<string>(){"bool", "#1", "#1", "#1"}));
-
-            // builtins.Add(new Symbol("+", new List<string>(){"num...", "num"}));
-            // builtins.Add(new Symbol("-", new List<string>(){"num...", "num"}));
-            // builtins.Add(new Symbol("*", new List<string>(){"num...", "num"}));
-            // builtins.Add(new Symbol("/", new List<string>(){"num...", "num"}));
-            // builtins.Add(new Symbol("mod", new List<string>(){"num", "num", "num"}));
-
-            // builtins.Add(new Symbol("=", new List<string>(){"#1", "#1", "bool"}));
-            // builtins.Add(new Symbol(">", new List<string>(){"#1...", "bool"}));
-            // builtins.Add(new Symbol("<=", new List<string>(){"#1...", "bool"}));
-            // builtins.Add(new Symbol("or", new List<string>(){"bool...", "bool"}));
-            // builtins.Add(new Symbol("not", new List<string>(){"bool", "bool"}));
-
-            // builtins.Add(new Symbol("NtoB", new List<string>(){"num", "bool"}));
-
-            // builtins.Add(new Symbol("index", new List<string>(){"num", "#1...", "#1"}));
-
-            // builtins.Add(new Symbol("cat", new List<string>(){"str...", "str"}));
-            // builtins.Add(new Symbol("NtoS", new List<string>(){"num", "str"}));
-            // builtins.Add(new Symbol("cons", new List<string>(){"#1", "#1...", "#1..."}));
-            // builtins.Add(new Symbol("empty", new List<string>(){"#1..."}));
         }
-        public static void clear_locals()
+
+        public static void add_to_layer(LexerLayer layer, Symbol symbol)
         {
-            locals.Clear();
+            if (layer.Count == 0)
+                throw new Exception("Cannot add to an empty layer");
+            layer.Peek().RemoveAll(x => x.symbol == symbol.symbol);
+            layer.Peek().Add(symbol);
         }
+
         public static void add_to_globals(Symbol to_add)
         {
-            globals.Add(to_add);
+            add_to_layer(globalsLayer, to_add);
         }
         public static void add_to_locals(Symbol to_add)
         {
-            locals.Add(to_add);
+            if (localsLayer.Peek().Contains(to_add))
+                localsLayer.Peek().Remove(to_add);
+            localsLayer.Peek().Add(to_add);
         }
+
+
+
+
+
         public static bool check_name(ref string _rtoken)
         {
             string token = _rtoken;
@@ -141,9 +202,17 @@ namespace Azurite
                     _rtoken += ".0";
                 }
             }
-            return builtins.Exists(x => x.symbol == token) || globals.Exists(x => x.symbol == token) ||
-            locals.Exists(x => x.symbol == token) || float.TryParse(token, out a) || (token[0] == '"' && token[token.Length - 1] == '"' || token == "true" || token == "false");
+            return builtins.Exists(x => x.symbol == token) || IsToken(token) || float.TryParse(token, out a) || (token[0] == '"' && token[token.Length - 1] == '"' || token == "true" || token == "false");
         }
+
+        internal static void MergeTemporaryLayer(LexerLayer layer)
+        {
+            if (localsLayer.Count <= 1)
+                return;
+            var last = localsLayer.Pop();
+            last.ForEach(x => add_to_layer(layer, x));
+        }
+
         public static bool check_SExpression(Parser.SExpression to_check)
         {
             if (to_check.has_data)
