@@ -274,17 +274,12 @@ namespace Azurite
                 {
                     if (Process(new Expression(expr, expr.Stringify()), filename))
                         quit = true;
-                    // else
-                    // Formal.descendent_verification(expression.arbre);
                 }
                 return quit;
             }
 
             return false;
         }
-
-
-
 
         /// <summary> Apply macro in the specified expression
         /// <param name="expression">The expression to check in.</param>
@@ -293,8 +288,6 @@ namespace Azurite
         public static Parser.SExpression MacroApply(Parser.SExpression expression)
         {
             expression = MacroManager.Execute(expression);
-            // if(Azurite.DEBUG)
-            // debug_list.Add(expression.Stringify());
             return expression;
         }
 
@@ -306,10 +299,6 @@ namespace Azurite
         {
             List<string> expressions = new List<string>();
             int line = 0;
-
-
-            //try
-            //{
             if (!DEBUG)
             {
                 for (; line < expressions_list.Count; ++line)

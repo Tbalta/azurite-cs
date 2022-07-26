@@ -106,6 +106,20 @@ namespace Azurite
             return null;
         }
 
+        internal static void remove_from_locals(string data)
+        {
+            var symbol = GetSymbol(localsLayer, data);
+            while (symbol != null)
+            {
+                for (int i = 0; i < localsLayer.Count; i++)
+                {
+                    if (localsLayer.Peek().Remove(symbol))
+                        break;
+                }
+                symbol = GetSymbol(localsLayer, data);
+            }
+        }
+
         public static Symbol GetSymbol(string data)
         {
             var symbol = GetSymbol(localsLayer, data);

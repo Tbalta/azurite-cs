@@ -25,6 +25,15 @@ namespace Azurite
             return input.Select(x => x.Replace(polymorphe, match)).ToList();
         }
 
+        private static string GetPolymorpheValue(string type, Dictionary<string, string> polymorphic_values)
+        {
+            var type_name = type.Substring(0, type.Length - (ListLevelType(type) * 3));
+            var rest = type.Substring(type_name.Length);
+            if (polymorphic_values.ContainsKey(type))
+                return polymorphic_values[type] + rest;
+            return type;
+        }
+
         public static bool is_polymorphic(string type)
         { // Un polymorphe commence avec '#'
             return type != "" && type[0] == '#';
@@ -64,6 +73,7 @@ namespace Azurite
                 dummy_type.Add("any");
                 Lexer.add_to_locals(new Lexer.Symbol(childs[1].data, dummy_type));
                 var return_type = GetType(childs[3]).Last();
+                Lexer.remove_from_locals(childs[1].data);
                 var type = parameters.ConvertAll(x => Lexer.GetSymbol(x).type.Last());
                 type.Add(return_type);
                 Lexer.add_to_globals(new Lexer.Symbol(childs[1].data, type));
@@ -132,12 +142,13 @@ namespace Azurite
             return LastChanceCheck(expression.LoadAllChild()[0].data, type);
         }
 
-        public static List<string> GetType(Parser.SExpression expression)
+
+        public static List<string> GetType(Parser.SExpression expression, string return_type = "")
         {
             if (expression.has_data)
                 return new List<string>() { GetTypeWithData(expression.data) };
             var protoList = Directive.find_matching_proto(expression);
-            var argumentType = expression.LoadAllChild().ConvertAll(GetType).ConvertAll(l => l.Last());
+            var argumentType = expression.LoadAllChild().ConvertAll(l => GetType(l, "")).ConvertAll(l => l.Last());
             if (protoList.Count == 0)
                 return ToListType(argumentType);
             var protoTypes = protoList.ConvertAll(x => Lexer.GetSymbol(x.ElementAt(0).Key).type);
@@ -147,31 +158,40 @@ namespace Azurite
             for (int index = 0; index < protoTypes.Count; index++)
             {
                 var protoType = protoTypes[index];
+                var polymorphValue = new Dictionary<string, string>();
+                if (is_polymorphic(protoType.Last()) && !is_polymorphic(return_type) && return_type != "")
+                    protoType = ReplacePolymorphe(protoType, protoType.Last(), return_type);
+                argumentType = expression.LoadAllChild().Zip(protoType, (x, y) => GetType(x, GetPolymorpheValue(y, polymorphValue)).Last()).ToList();
                 var isMatch = true;
                 for (int i = 0; i < argumentType.Count; i++)
                 {
                     if (is_polymorphic(protoType[i]))
-                        protoType = ReplacePolymorphe(protoType, protoType[i], argumentType[i]);
-                    if (protoType[i] == "" || protoType[i] == "any")
-                        continue;
-                    if (protoType[i] != argumentType[i])
                     {
-                        if (LastChanceCheck(expression.LoadAllChild()[i], protoType[i]))
+                        if (polymorphValue.ContainsKey(protoType[i]))
                         {
-                            argumentType = expression.LoadAllChild().ConvertAll(GetType).ConvertAll(l => l.Last());
-                            index--;
-                            isMatch = false;
-                            break;
+                            if (polymorphValue[protoType[i]] == "any")
+                                polymorphValue[protoType[i]] = argumentType[i];
                         }
-                        errors.Add($"{expression.LoadAllChild()[i].Stringify()} is {argumentType[i]} but should be {protoType[i]}");
+                        else
+                            polymorphValue.Add(protoType[i], argumentType[i]);
+                    }
+                    if (protoType[i] == "" || protoType[i] == "any" || GetPolymorpheValue(protoType[i], polymorphValue) == argumentType[i])
+                        continue;
+                    if (LastChanceCheck(expression.LoadAllChild()[i], protoType[i]))
+                    {
+                        index--;
                         isMatch = false;
                         break;
                     }
+                    errors.Add($"{expression.LoadAllChild()[i].Stringify()} is {argumentType[i]} but should be {protoType[i]}");
+                    isMatch = false;
+                    break;
+
                 }
                 if (isMatch)
                 {
                     Lexer.MergeTemporaryLayer(Lexer.localsLayer);
-                    return protoType;
+                    return protoType.ConvertAll(x => GetPolymorpheValue(x, polymorphValue)).ToList();
                 }
             }
             Lexer.removeTemporaryLayer(Lexer.localsLayer);
