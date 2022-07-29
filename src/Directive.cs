@@ -360,7 +360,7 @@ namespace Azurite
             if (text == "")
                 return false;
 
-            Parser.SExpression expression = new Parser.SExpression(text);
+            Parser.SExpression expression = MacroManager.Execute(new Parser.SExpression(text));
             // Parser.SExpression expression = new Parser.SExpression(match[0].Groups[1].Value.Trim());
 
             for (int i = 0; i < argumentName.Count; i++)
@@ -611,7 +611,7 @@ namespace Azurite
                         {
                             Parser.SExpression expr = parameters[0].Clone();
                             expr.Map(_child => (_child.data == $"{instruction.proto.ElementAt(i).Key}") ? arg : _child);
-                            evaluate_arg.Add(Transpiler.Convert(expr, language));
+                            evaluate_arg.Add(Transpiler.Convert(MacroManager.Execute(expr), language));
                         }
 
                         // Replace with the evaluate list.

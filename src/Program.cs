@@ -732,6 +732,11 @@ namespace Azurite
                 return false;
             }
 
+            public SExpression this[int i]
+            {
+                get { return i == 0 ? this : this.second()[i - 1]; }
+            }
+
         }
 
     }

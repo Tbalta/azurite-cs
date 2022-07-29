@@ -267,7 +267,9 @@ namespace Azurite
                 else
                 {
                     level = get_match_level_of(ref_childs[i].data);
-                    if (is_of_match_level(match_childs[i], level, ref_childs[i].data))
+                    if (i == ref_childs.Count - 1 && level == Directive.MATCH_LEVEL.LIST)
+                        to_return.Add(get_token(ref_childs[i].data, level), to_match[i]);
+                    else if (is_of_match_level(match_childs[i], level, ref_childs[i].data))
                     {
                         string token = get_token(ref_childs[i].data, level);
                         if (to_return.ContainsKey(token))
@@ -279,8 +281,6 @@ namespace Azurite
                             to_return.Add(get_token(ref_childs[i].data, level), match_childs[i]);
 
                     }
-                    else if (i == ref_childs.Count - 1 && level == Directive.MATCH_LEVEL.LIST)
-                        to_return.Add(get_token(ref_childs[i].data, level), Parser.SExpression.fromList(match_childs.GetRange(i, match_childs.Count - 1)));
                     else
                         return null;
                 }

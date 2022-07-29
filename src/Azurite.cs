@@ -194,7 +194,7 @@ namespace Azurite
                 // if (Langconfig.compilation == "1")
                 //     expression.arbre = Compiler.FoldingExpression(expression.arbre);
                 // MyFormal.GetStupidType(expression.arbre);
-                FormalReborn.GetType(arbre);
+                FormalReborn.GetType(expression.arbre);
                 expressions_list.Add(expression);
             }
             else if (Azurite.DEBUG)
@@ -270,11 +270,16 @@ namespace Azurite
             if (!arbre.has_data)
             {
                 bool quit = false;
+                var nonAdded = new List<Parser.SExpression>();
                 foreach (var expr in arbre.LoadAllChild())
                 {
                     if (Process(new Expression(expr, expr.Stringify()), filename))
                         quit = true;
+                    else
+                        nonAdded.Add(expr);
                 }
+                if (quit)
+                    nonAdded.ForEach(elt => expressions_list.Add(new Expression(elt, elt.Stringify())));
                 return quit;
             }
 
