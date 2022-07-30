@@ -553,22 +553,8 @@ namespace Azurite
 
             public List<string> LoadAllData()
             {
-                List<string> parameters = new List<string>();
 
-                Parser.SExpression current = this;
-                if (current.first() == null)
-                {
-                    parameters.Add(current.data);
-                    return parameters;
-
-                }
-                while (current.data != "NULL")
-                {
-                    parameters.Add(current.first().data);
-                    current = current.second();
-                }
-
-                return parameters;
+                return LoadAllChild().ConvertAll(x => x.data);
             }
 
 
@@ -628,7 +614,7 @@ namespace Azurite
                 while (current != null && current.data != "NULL")
                 {
 
-                    parameters.Add(current.first());
+                    parameters.Add(current.first() != null? current.first() : current);
                     current = current.second();
                 }
 

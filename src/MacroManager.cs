@@ -76,6 +76,11 @@ namespace Azurite
         }
         public static Parser.SExpression Execute(Parser.SExpression expression, ref bool modification, int index = 0)
         {
+
+            if (expression.first() != null)
+                expression.first(Execute(expression.first(), ref modification, 0));
+            if (expression.second() != null)
+                expression.second(Execute(expression.second(), ref modification, 0));
             // index = 0;
             Dictionary<string, Parser.SExpression> proto = FindMacro(expression, ref index);
 
@@ -83,20 +88,13 @@ namespace Azurite
 
             if (proto == null)
             {
-                if (expression.first() != null)
-                    expression.first(Execute(expression.first(), ref modification, 0));
-                if (expression.second() != null)
-                    expression.second(Execute(expression.second(), ref modification, 0));
-                if (modification)
-                {
-                    return Execute(expression, 0);
-                }
                 return expression;
             }
             modification = true;
 
             Parser.SExpression effect = macro_list[index].body.Clone();
-            if (Azurite.DEBUG){
+            if (Azurite.DEBUG)
+            {
 
                 Azurite.debug_list.Add(expression.Stringify() + "-->");
                 Console.WriteLine(expression.Stringify() + "is matched with " + macro_list[index].parameters.Stringify());
@@ -111,12 +109,15 @@ namespace Azurite
                      ? argument.Value.first() : argument.Value) : expr);
                 if (argument.Value.data != null)
                     effect.MapData(expr => expr.data.Replace("@" + argument.Key + "@", argument.Value.data.Trim('\"')).Replace("\\\"", "\""));
+                else
+                    effect.MapData(expr => expr.data.Replace("@" + argument.Key + "@", argument.Value.Stringify()));
+
             }
 
             //effect = Tools.reinsert_nulls(effect);
             //effect.PrettyPrint();
-            if(Azurite.DEBUG)
-                Azurite.debug_list[Azurite.debug_list.Count-1] += effect.Stringify();
+            if (Azurite.DEBUG)
+                Azurite.debug_list[Azurite.debug_list.Count - 1] += effect.Stringify();
 
             return Execute(effect, 0);
         }

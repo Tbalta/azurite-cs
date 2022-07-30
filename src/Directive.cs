@@ -278,10 +278,6 @@ namespace Azurite
             for (; i < childs.Count && childs[i].LoadAllData().TrueForAll(x => !(x is null)); i++) ;
             if (i != childs.Count)
                 return false;
-            while (i < childs.Count)
-            {
-
-            }
             return true;
 
         }
@@ -315,8 +311,10 @@ namespace Azurite
                     // offset++;
                     type.Insert(i, "");
 
-                else
+                else if (i - offset < type.Count && i - offset >= 0)
                     arg_type = type[i - offset];
+                else
+                    throw new Azurite.Ezception(504, $"There is not enough type for the arguments {name}");
                 if (proto.ContainsKey(name))
                     throw new Azurite.Ezception(505, "Two parameters have the same name");
                 proto.Add(name, new KeyValuePair<MATCH_LEVEL, string>(level, arg_type));
@@ -557,7 +555,7 @@ namespace Azurite
                         string text_to_replace = replacement.Match(effect).Value.Replace("\\}", "}");
                         try
                         {
-                        text_to_replace = text_to_replace.Substring(name.Length + 1, text_to_replace.Length - (name.Length + 2));
+                            text_to_replace = text_to_replace.Substring(name.Length + 1, text_to_replace.Length - (name.Length + 2));
                         }
                         catch (System.ArgumentOutOfRangeException)
                         {
