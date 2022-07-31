@@ -151,7 +151,7 @@ namespace Azurite
             var argumentType = expression.LoadAllChild().ConvertAll(l => GetType(l, "")).ConvertAll(l => l.Last());
             if (protoList.Count == 0)
                 return ToListType(argumentType);
-            var protoTypes = protoList.ConvertAll(x => Lexer.GetSymbol(x.ElementAt(0).Key).type);
+            var protoTypes = protoList.ConvertAll(x => x.Item1.Values.ToList().ConvertAll(x => x.Value).Append(x.Item2).ToList());
             Lexer.addTemporaryLayer(Lexer.localsLayer);
             List<string> errors = new List<string>();
 

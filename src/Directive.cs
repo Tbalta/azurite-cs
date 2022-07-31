@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
+using Prototype = System.Collections.Generic.Dictionary<string, System.Collections.Generic.KeyValuePair<Azurite.Directive.MATCH_LEVEL, string>>;
 namespace Azurite
 {
     using Formal = FormalReborn;
@@ -34,7 +35,6 @@ namespace Azurite
             NULL
         }
 
-
         private static string Tokenize(string token, Directive.MATCH_LEVEL level)
         {
             switch (level)
@@ -59,13 +59,13 @@ namespace Azurite
             public string import;
 
             /// <summary>The arguments associated with the match level ex:(x->LIST)</summary>
-            public Dictionary<string, KeyValuePair<MATCH_LEVEL, string>> proto;
+            public Prototype proto;
 
             /// <summary> the structure in the targeted language ex: Console.Write({x}) </summary>
             public string effect;
 
             /// <summary> The type of the instruction ex:"num" "num" "bool"</summary> 
-            public Instruction(string import, Dictionary<string, KeyValuePair<MATCH_LEVEL, string>> proto, string effect)
+            public Instruction(string import, Prototype proto, string effect)
             {
                 this.proto = proto;
                 this.effect = effect;
@@ -92,11 +92,11 @@ namespace Azurite
 
         }
 
-        public static List<Dictionary<string, KeyValuePair<MATCH_LEVEL, string>>> protoList = new List<Dictionary<string, KeyValuePair<MATCH_LEVEL, string>>>();
+        public static List<Tuple<Prototype, string>> protoList = new List<Tuple<Prototype, string>>();
         public static List<List<Instruction>> instructions_list = new List<List<Instruction>>();
         public static List<string> imports_list = new List<string>();
 
-        private static bool SexpressionMatch(Parser.SExpression expression, Dictionary<string, KeyValuePair<MATCH_LEVEL, string>> proto)
+        private static bool SexpressionMatch(Parser.SExpression expression, Prototype proto)
         {
             var childs = expression.LoadAllChild();
             if (childs.Count() != proto.Count())
@@ -112,9 +112,9 @@ namespace Azurite
             return true;
         }
 
-        public static List<Dictionary<string, KeyValuePair<MATCH_LEVEL, string>>> find_matching_proto(Parser.SExpression expression)
+        public static List<Tuple<Prototype, string>> find_matching_proto(Parser.SExpression expression)
         {
-            return protoList.Where(x => SexpressionMatch(expression, x)).ToList();
+            return protoList.Where(x => SexpressionMatch(expression, x.Item1)).ToList();
         }
         /// <summary>
         /// It's the list of the token wich are known callable.
@@ -192,24 +192,24 @@ namespace Azurite
             foreach (Instruction instruction in instructions_list[Azurite.LanguageHandler.getLanguageIndex(lang)])
             {
                 Func<int, KeyValuePair<string, KeyValuePair<MATCH_LEVEL, string>>> getProto = index => instruction.proto.ElementAt(index);
-                if (arguments.Count == instruction.proto.Count || getProto(instruction.proto.Count - 1).Value.Key == MATCH_LEVEL.LIST)
+                if (arguments.Count != instruction.proto.Count)
+                    continue;
+
+                int i = 0;
+                bool isLast = i == instruction.proto.Count - 1 && i != arguments.Count - 1;
+
+                while (i < instruction.proto.Count && arguments[i].matchProto(getProto(i)) && FormalReborn.compare_type(getProto(i).Value.Value, FormalReborn.GetType(arguments[i]).Last()))
                 {
 
-                    int i = 0;
-                    bool isLast = i == instruction.proto.Count - 1 && i != arguments.Count - 1;
-
-                    while (i < instruction.proto.Count && arguments[i].matchProto(getProto(i)) && FormalReborn.compare_type(getProto(i).Value.Value, FormalReborn.GetType(arguments[i]).Last()))
-                    {
-
-                        i++;
-                        isLast = i == instruction.proto.Count - 1 && i != arguments.Count - 1;
-
-                    }
-
-                    if (i == instruction.proto.Count)
-                        return instruction;
+                    i++;
+                    isLast = i == instruction.proto.Count - 1 && i != arguments.Count - 1;
 
                 }
+
+                if (i == instruction.proto.Count)
+                    return instruction;
+
+
             }
             return new Instruction(null, null, null);
         }
@@ -299,7 +299,7 @@ namespace Azurite
                 type[i] = type[i].Replace("\"", "");
 
             // Converting the arguments into the prototype
-            Dictionary<string, KeyValuePair<MATCH_LEVEL, string>> proto = new Dictionary<string, KeyValuePair<MATCH_LEVEL, string>>();
+            Prototype proto = new Prototype();
             int offset = 0;
 
             for (int i = 0; i < arguments.Count; i++)
@@ -319,7 +319,7 @@ namespace Azurite
                     throw new Azurite.Ezception(505, "Two parameters have the same name");
                 proto.Add(name, new KeyValuePair<MATCH_LEVEL, string>(level, arg_type));
             }
-            protoList.Add(proto);
+            protoList.Add(new Tuple<Prototype, string>(proto, type.Last()));
             Lexer.add_to_globals(new Lexer.Symbol(arguments[0].Key, type));
 
             // Loading all the language definition.

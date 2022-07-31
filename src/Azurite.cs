@@ -194,7 +194,6 @@ namespace Azurite
                 // if (Langconfig.compilation == "1")
                 //     expression.arbre = Compiler.FoldingExpression(expression.arbre);
                 // MyFormal.GetStupidType(expression.arbre);
-                FormalReborn.GetType(expression.arbre);
                 expressions_list.Add(expression);
             }
             else if (Azurite.DEBUG)
