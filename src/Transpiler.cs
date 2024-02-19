@@ -44,8 +44,6 @@ namespace Azurite
 
             }
             var result = Convert(expression.first(), language);
-            if (expression.first().data == Langconfig.function_name)
-                FormalReborn.ExitContextFunc();
             return result;
 
         }

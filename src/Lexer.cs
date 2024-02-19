@@ -87,7 +87,7 @@ namespace Azurite
         /// <returns>The corresponding symbol</returns>
         public static Symbol GetSymbol(UniqueSymbolTable table, string data)
         {
-            return table.Find(x => x.symbol == data);
+            return table.Find(x => x.symbol == data || Directive.CheckPartialMatch(x.symbol, data));
         }
 
         internal static void removeTemporaryLayer(LexerLayer layer)

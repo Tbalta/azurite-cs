@@ -1,0 +1,12 @@
+(macro ("//" a...) ())
+(// Basic test for weak matching)
+(translate ("azur") ("any") (azur "" "azur"))
+(translate ("+" a b) ("any" "any" "any") (azur "" "({a} + {b})"))
+(+ 2 3)
+(+ (+ 2 3) (+ 2 5))
+
+(// test for strict matching)
+(translate ("-" 'a' 'b') ("any" "any" "any")(azur "" "strict_- {a} {b}"))
+(translate ("-" a b) ("any" "any" "any") (azur "" "weak_- {a} {b}"))
+(- 1 2)
+(- 1 (- 1 2))
