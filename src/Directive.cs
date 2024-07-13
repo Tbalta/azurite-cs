@@ -112,9 +112,26 @@ namespace Azurite
             return true;
         }
 
+        public static int comparePrototype(Prototype proto1, Prototype proto2)
+        {
+            var proto1_match_level = proto1.Select(x => x.Value.Key);
+            var proto2_match_level = proto2.Select(x => x.Value.Key);
+            var precedence = new List<MATCH_LEVEL>() { MATCH_LEVEL.EXACT, MATCH_LEVEL.PARTIAL, MATCH_LEVEL.STRICT, MATCH_LEVEL.LIGHT, MATCH_LEVEL.LIST, MATCH_LEVEL.CALLABLE };
+            foreach (var level in precedence)
+            {
+                var sum1 = proto1_match_level.Sum(x => x == level ? 1 : 0);
+                var sum2 = proto2_match_level.Sum(x => x == level ? 1 : 0);
+                if (sum2 - sum1 != 0)
+                    return sum2 - sum1;
+            }
+            return 0;
+        }
+
         public static List<Tuple<Prototype, string>> find_matching_proto(Parser.SExpression expression)
         {
-            return protoList.Where(x => SexpressionMatch(expression, x.Item1)).ToList();
+            var result = protoList.Where(x => SexpressionMatch(expression, x.Item1)).ToList();
+            result.Sort((a, b) => comparePrototype(a.Item1, b.Item1));
+            return result;
         }
         /// <summary>
         /// It's the list of the token wich are known callable.
@@ -189,27 +206,20 @@ namespace Azurite
         private static Instruction Match(string lang, Parser.SExpression expression, string forced = null)
         {
             var arguments = expression.LoadAllChild();
+            // var expresionType = FormalReborn.GetType(expression);
             foreach (Instruction instruction in instructions_list[Azurite.LanguageHandler.getLanguageIndex(lang)])
             {
                 Func<int, KeyValuePair<string, KeyValuePair<MATCH_LEVEL, string>>> getProto = index => instruction.proto.ElementAt(index);
                 if (arguments.Count != instruction.proto.Count)
                     continue;
-
                 int i = 0;
-                bool isLast = i == instruction.proto.Count - 1 && i != arguments.Count - 1;
-
-                while (i < instruction.proto.Count && arguments[i].matchProto(getProto(i)) && FormalReborn.compare_type(getProto(i).Value.Value, FormalReborn.GetType(arguments[i]).Last()))
+                while (i < instruction.proto.Count && arguments[i].matchProto(getProto(i)) /*&& FormalReborn.compare_type(getProto(i).Value.Value, expresionType[i])*/)
                 {
-
                     i++;
-                    isLast = i == instruction.proto.Count - 1 && i != arguments.Count - 1;
-
                 }
 
                 if (i == instruction.proto.Count)
                     return instruction;
-
-
             }
             return new Instruction(null, null, null);
         }
@@ -492,6 +502,7 @@ namespace Azurite
                     throw new Azurite.Ezception(506, "stack overflow " + expression.Stringify() + " match with " + instruction.ToString());
                 Transpiler.numberNames.Add(expression.Stringify());
             }
+            var ArgumentName = instruction.proto.Keys.ToList();
 
             // addCustomToLexer(arguments, instruction);
 
@@ -521,6 +532,7 @@ namespace Azurite
                     expresionType = FormalReborn.GetType(arguments[i]);
                     effect = effect.Replace("$" + instruction.proto.ElementAt(i).Key + "$",
                     Transpiler.Convert($"({expresionType[expresionType.Count - 1]})", language));
+                    // Convert name so user can use custom name for the type
                 }
                 if (effect.Contains("^" + instruction.proto.ElementAt(i).Key + "^"))
                 {
@@ -545,7 +557,7 @@ namespace Azurite
                         effect = effect.Replace($"@{instruction.proto.ElementAt(i).Key}@", (Lexer.GetSymbol(arguments[i].data).type.Count - 1).ToString());
                         goto case MATCH_LEVEL.STRICT;
                     case MATCH_LEVEL.STRICT:
-                        effect = effect.Replace("{" + instruction.proto.ElementAt(i).Key + "}", arguments[i].data);
+                        effect = effect.Replace("{" + instruction.proto.ElementAt(i).Key + "}", Transpiler.Convert("(" + arguments[i].data + ")", language, type));
                         break;
                     case MATCH_LEVEL.LIST:
                         string name = instruction.proto.ElementAt(i).Key;
@@ -619,7 +631,7 @@ namespace Azurite
                         if (effect.Contains($"{{{instruction.proto.ElementAt(i).Key}}}"))
                             effect = effect.Replace($"{{{instruction.proto.ElementAt(i).Key}}}",
                             arguments[i].data != null ?
-                            arguments[i].data :
+                            Transpiler.Convert("(" + arguments[i].data + ")", language, type) :
                             Transpiler.Convert(arguments[i], language, type)
                             );
                         break;
@@ -628,15 +640,16 @@ namespace Azurite
                         string variable_name = extract.Value.Trim('|');
                         string argument_name = arguments[i].data;
                         string temp_argu = "";
-                        arguments[i].data = variable_name;
-
+                        ArgumentName[i] = variable_name;
+                        arguments[i] = arguments[i].Clone();
                         string instruction_name = instruction.proto.ElementAt(i).Key;
                         int nombre_char_end = instruction_name.Length - (extract.Index + extract.Length);
                         if (argument_name.Length - nombre_char_end - extract.Index != 0)
                             temp_argu = argument_name.Substring(extract.Index, (argument_name.Length - nombre_char_end - extract.Index));
+                        arguments[i].data = temp_argu;
 
-
-                        effect = effect.Replace($"{{{variable_name}}}", Transpiler.Convert("(" + temp_argu + ")", language, type));
+                        if (effect.Contains($"{{{variable_name}}}"))
+                            effect = effect.Replace($"{{{variable_name}}}", Transpiler.Convert("(" + temp_argu + ")", language, type));
                         break;
                 }
 
@@ -649,7 +662,7 @@ namespace Azurite
             }
 
             int TOUR = 0;
-            while (effect != null && TOUR < MainClass.MAX_RECURSION_ALLOWED && Eval(ref effect, instruction.proto.Keys.ToList(), arguments, language))
+            while (effect != null && TOUR < MainClass.MAX_RECURSION_ALLOWED && Eval(ref effect, ArgumentName, arguments, language))
                 TOUR++;
             Transpiler.numberNames.Remove(expression.Stringify());
             return effect;

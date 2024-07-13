@@ -1,0 +1,5 @@
+(import "stdlib/prellvm")
+(import "stdlib/azurir")
+(import "stdlib/csharp")
+(defun facto (n) (if (< n 2) 1 (* n (facto ((- n 1))))))
+(main ((facto (6))))

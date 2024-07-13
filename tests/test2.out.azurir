@@ -1,0 +1,7 @@
+defun main
+   
+PUSH_STACK()
+PUSH(5)
+GOTO facto
+GOTO POP_STACK()
+

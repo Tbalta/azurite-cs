@@ -153,9 +153,18 @@ namespace Azurite
             // input = args[0];
 
             List<string> parameter = new List<string>();
-            Command currentcom = commandList[commandList.IndexOf(new Command(args[0]))];
+            int i = 0;
+            for (; i < args.Length; i++)
+            {
+                if (commandList.IndexOf(new Command(args[i])) > -1)
+                    break;
+            }
+            if (i == args.Length)
+                return;
+            Command currentcom = commandList[commandList.IndexOf(new Command(args[i]))];
 
-            for (int i = 1; i < args.Length; i++)
+            i++;
+            for (; i < args.Length; i++)
             {
 
                 if (commandList.IndexOf(new Command(args[i])) > -1)

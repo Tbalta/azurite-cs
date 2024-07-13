@@ -29,8 +29,8 @@ namespace Azurite
         {
             var type_name = type.Substring(0, type.Length - (ListLevelType(type) * 3));
             var rest = type.Substring(type_name.Length);
-            if (polymorphic_values.ContainsKey(type))
-                return polymorphic_values[type] + rest;
+            if (polymorphic_values.ContainsKey(type_name))
+                return polymorphic_values[type_name] + rest;
             return type;
         }
 
@@ -44,13 +44,19 @@ namespace Azurite
             return type.EndsWith("...");
         }
 
-        public static bool compare_type(string type1, string type2)
+        public static bool compare_type(string reference, string to_test)
         {
-            if (is_polymorphic(type1) || is_polymorphic(type2))
+            while (ListLevelType(to_test) > 0 && ListLevelType(reference) > 0)
+            {
+                to_test = unlist(to_test, 1);
+                reference = unlist(reference, 1);
+            }
+
+            if (is_polymorphic(reference))
+                return ListLevelType(reference) <= ListLevelType(to_test);
+            if (reference == "any" || reference == "")
                 return true;
-            if (type1 == "any" || type2 == "any" || type1 == "")
-                return true;
-            return type1 == type2;
+            return reference == to_test;
         }
 
         internal static void SetContextFunc(Parser.SExpression expression)
@@ -80,15 +86,20 @@ namespace Azurite
             }
         }
 
-        private static string GetTypeWithData(string data)
+        private static string GetTypeWithData(Parser.SExpression expr)
         {
+            var ProtoList = Directive.find_matching_proto(expr);
+            string data = expr.data;
+   
+
             if (data.StartsWith("\"") && data.EndsWith("\""))
                 return "str";
             if (double.TryParse(data, out _))
                 return "num";
             if (Lexer.ContainSymbol(Lexer.localsLayer, data) || Lexer.ContainSymbol(Lexer.globalsLayer, data))
                 return Lexer.GetSymbol(data).type.Last();
-
+            Console.WriteLine($"[Warning]Unknown token: {data}");
+            return "any";
             throw new Azurite.Ezception(201, $"Unknown token {data}");
         }
 
@@ -120,6 +131,8 @@ namespace Azurite
 
         private static bool LastChanceCheck(string name, string type)
         {
+            if (is_polymorphic(type))
+                return false;
             var symbol = Lexer.GetSymbol(Lexer.localsLayer, name);
             if (symbol == null)
                 return false;
@@ -141,60 +154,107 @@ namespace Azurite
                 return LastChanceCheck(expression.data, type);
             return LastChanceCheck(expression.LoadAllChild()[0].data, type);
         }
+        public static string unlist(string type) => type.Substring(0, type.Length - 3 * (ListLevelType(type)));
+        public static string unlist(string type, int level) => type.Substring(0, type.Length - 3 * level);
+
+
+        private class Typeable
+        {
+            public string expected;
+            public Parser.SExpression expression;
+            public bool second_try;
+            public string effective_type;
+
+            public Typeable(Parser.SExpression expression, string expected)
+            {
+                this.expected = expected;
+                this.expression = expression;
+                this.second_try = false;
+                this.effective_type = "";
+            }
+
+            public void Type()
+            {
+                this.effective_type = FormalReborn.GetType(this.expression, expected).Last();
+            }
+
+            internal void Type(string expected)
+            {
+                this.effective_type = FormalReborn.GetType(this.expression, expected).Last();
+            }
+        }
+
+        public static List<string> GetTypeV2(Parser.SExpression expression, List<string> protoType)
+        {
+
+            var polymorphValue = new Dictionary<string, string>();
+            var to_type = new Queue<Typeable>(expression.LoadAllChild().Zip(protoType, (ast, type) => new Typeable(ast, type)).ToList());
+
+            while (to_type.Count() > 0)
+            {
+                var current = to_type.Dequeue();
+                current.Type(GetPolymorpheValue(current.expected, polymorphValue));
+                if (is_polymorphic(current.expected) && ListLevelType(current.expected) <= ListLevelType(current.effective_type))
+                {
+                    var polymorph_name = unlist(current.expected);
+                    var polymorph_type = unlist(current.effective_type, ListLevelType(current.expected));
+                    if (polymorphValue.ContainsKey(polymorph_name))
+                    {
+                        if (polymorphValue[polymorph_name] == "any")
+                            polymorphValue[polymorph_name] = polymorph_type;
+                    }
+                    else
+                        polymorphValue.Add(polymorph_name, polymorph_type);
+                }
+                if (current.expected == "" || current.expected == "any" || compare_type(GetPolymorpheValue(current.expected, polymorphValue), current.effective_type))
+                    continue;
+                if (LastChanceCheck(current.expression, GetPolymorpheValue(current.expected, polymorphValue)))
+                {
+                    to_type = new Queue<Typeable>(expression.LoadAllChild().Zip(protoType, (ast, type) => new Typeable(ast, type)).ToList());
+                    continue;
+                }
+                if (current.second_try)
+                    throw new Azurite.Ezception(201, $"Type mismatch in {current.expression.Stringify()} is {current.effective_type} but expected {current.expected}");
+                current.second_try = true;
+                to_type.Enqueue(current);
+            }
+            return protoType.ConvertAll(x => GetPolymorpheValue(x, polymorphValue)).ToList();
+        }
 
 
         public static List<string> GetType(Parser.SExpression expression, string return_type = "")
         {
             if (expression.has_data)
-                return new List<string>() { GetTypeWithData(expression.data) };
+                return new List<string>() { GetTypeWithData(expression) };
             var protoList = Directive.find_matching_proto(expression);
-            var argumentType = expression.LoadAllChild().ConvertAll(l => GetType(l, "")).ConvertAll(l => l.Last());
             if (protoList.Count == 0)
-                return ToListType(argumentType);
+                return ToListType(expression.LoadAllChild().ConvertAll(l => GetType(l, "")).ConvertAll(l => l.Last()));
             var protoTypes = protoList.ConvertAll(x => x.Item1.Values.ToList().ConvertAll(x => x.Value).Append(x.Item2).ToList());
-            Lexer.addTemporaryLayer(Lexer.localsLayer);
             List<string> errors = new List<string>();
 
             for (int index = 0; index < protoTypes.Count; index++)
             {
-                var protoType = protoTypes[index];
-                var polymorphValue = new Dictionary<string, string>();
-                if (is_polymorphic(protoType.Last()) && !is_polymorphic(return_type) && return_type != "")
-                    protoType = ReplacePolymorphe(protoType, protoType.Last(), return_type);
-                argumentType = expression.LoadAllChild().Zip(protoType, (x, y) => GetType(x, GetPolymorpheValue(y, polymorphValue)).Last()).ToList();
-                var isMatch = true;
-                for (int i = 0; i < argumentType.Count; i++)
+                if (is_polymorphic(protoTypes[index].Last()) && return_type != "" && return_type != "any")
+                    protoTypes[index] = ReplacePolymorphe(protoTypes[index], protoTypes[index].Last(), return_type);
+                Lexer.addTemporaryLayer(Lexer.localsLayer);
+                List<string> type = null;
+                try
                 {
-                    if (is_polymorphic(protoType[i]))
-                    {
-                        if (polymorphValue.ContainsKey(protoType[i]))
-                        {
-                            if (polymorphValue[protoType[i]] == "any")
-                                polymorphValue[protoType[i]] = argumentType[i];
-                        }
-                        else
-                            polymorphValue.Add(protoType[i], argumentType[i]);
-                    }
-                    if (protoType[i] == "" || protoType[i] == "any" || GetPolymorpheValue(protoType[i], polymorphValue) == argumentType[i])
-                        continue;
-                    if (LastChanceCheck(expression.LoadAllChild()[i], protoType[i]))
-                    {
-                        index--;
-                        isMatch = false;
-                        break;
-                    }
-                    errors.Add($"{expression.LoadAllChild()[i].Stringify()} is {argumentType[i]} but should be {protoType[i]}");
-                    isMatch = false;
-                    break;
+                    type = GetTypeV2(expression, protoTypes[index]);
+                }
+                catch (Azurite.Ezception e)
+                {
+                    errors.Add(e.Message);
 
                 }
-                if (isMatch)
+                if (type != null)
                 {
                     Lexer.MergeTemporaryLayer(Lexer.localsLayer);
-                    return protoType.ConvertAll(x => GetPolymorpheValue(x, polymorphValue)).ToList();
+                    return type;
                 }
+                // errors.Add($"{expression.Stringify()}({protoList[index].Item2})");
+                Lexer.removeTemporaryLayer(Lexer.localsLayer);
             }
-            Lexer.removeTemporaryLayer(Lexer.localsLayer);
             throw new Azurite.Ezception(201, string.Join("\n", errors));
         }
 

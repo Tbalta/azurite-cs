@@ -614,7 +614,7 @@ namespace Azurite
                 while (current != null && current.data != "NULL")
                 {
 
-                    parameters.Add(current.first() != null? current.first() : current);
+                    parameters.Add(current.first() != null ? current.first() : current);
                     current = current.second();
                 }
 
@@ -720,119 +720,143 @@ namespace Azurite
 
             public SExpression this[int i]
             {
+
                 get { return i == 0 ? this : this.second()[i - 1]; }
             }
 
         }
 
     }
+    // Move the ShowHelp() method outside of the namespace
     class MainClass
     {
+        static void ShowHelp()
+        {
+            Console.WriteLine("Usage: azurite [file] [options]");
+            Console.WriteLine("Options:");
+            Console.WriteLine("  -t, --target <language>  Specify the target language");
+            Console.WriteLine("  -r, --repl               Start the REPL");
+            Console.WriteLine("  -c, --config <file>      Load a configuration file");
+            Console.WriteLine("  -l, --list               List all available languages");
+            Console.WriteLine("  -s, --save <file>        Save the output to a file");
+            Console.WriteLine("  -d, --DEBUG              Enable debug mode");
+            Console.WriteLine("  -h, --help               Show this help message");
+        }
         public const int MAX_RECURSION_ALLOWED = 100;
         public static void Main(string[] args)
         {
 
+            if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
+            {
+                ShowHelp();
+                return;
+            }
+
+            // first switch index
+            int i = 0;
+            for (; i < args.Length; i++)
+            {
+                if (args[i].StartsWith("-"))
+                    break;
+            }
+
+            List<string> inputFiles = args.ToList().GetRange(0, i);
+            List<string> options = args.ToList().GetRange(i, args.Length - i);
+
             Lexer.init_builtins();
 
-            if (args.Length > 0)
-            {
+            // string filePath = "";
+            // ParameterManagers.OnInput = input => { if (!Langconfig.is_loaded) Langconfig.load(); Azurite.Load(input); Azurite.Compile(); };
+            List<string> languages = new List<string>();
+            string outputFile = "";
 
-
-                // string filePath = "";
-                // ParameterManagers.OnInput = input => { if (!Langconfig.is_loaded) Langconfig.load(); Azurite.Load(input); Azurite.Compile(); };
-                List<string> languages = new List<string>();
-
-
-                ParameterManagers.registerCommand(
-                    new ParameterManagers.Command("-t", langs => languages = langs,
-                        new List<string>() { "--target" },
-                        true
-                        ));
-
-                ParameterManagers.registerCommand(
-                    new ParameterManagers.Command("-r", output =>
-                    {
-                        if (output.Count == 0)
-                            new REPL();
-                        else
-                            new REPL(output[0]);
-                    },
-                    new List<string>() { "--repl", "--REPL", "-R" })
-                );
-
-
-
-                ParameterManagers.registerCommand(
-                    new ParameterManagers.Command("-c",
-                        output =>
-                        {
-                            try
-                            {
-                                Langconfig.load(output[0]);
-
-                            }
-                            catch (Azurite.Ezception e)
-                            {
-                                TextWriter errorWriter = Console.Error;
-                                errorWriter.WriteLine($"{e.code} {e.Message}");
-                                System.Environment.Exit(1);
-                            }
-
-                        },
-                        new List<string>() { "--config" },
-                        false,
-                        () => { Langconfig.load(); }
-                    ));
-
-                ParameterManagers.registerCommand(
-                    new ParameterManagers.Command("-f",
-                        input => { if (!Langconfig.is_loaded) Langconfig.load(); Azurite.Load(input[0]); Azurite.Compile(); },
-                        new List<string>() { "--file" },
-                        true
-                        ));
-                ParameterManagers.registerCommand(
-                    new ParameterManagers.Command("-l", output =>
-                    {
-                        Console.Write(Azurite.LanguageHandler.LogLanguage());
-                    },
-                        new List<string>() { "--list" },
-                        true
-                        ));
-
-                ParameterManagers.registerCommand(
-                    new ParameterManagers.Command("-s", output =>
-                    {
-                        foreach (string lang in languages)
-                        {
-                            string file_extension = Azurite.GetFileExtension(lang);
-                            Azurite.Export(output[0] + "." + file_extension, lang);
-                            Console.WriteLine($"file save at: {Path.GetFullPath(output[0] + "." + file_extension)}");
-                        }
-                    },
-                    new List<string>() { "--save" },
+            ParameterManagers.registerCommand(
+                new ParameterManagers.Command("-t", langs => languages = langs,
+                    new List<string>() { "--target" },
                     true
                     ));
 
-                ParameterManagers.registerCommand(
-                    new ParameterManagers.Command("-d",
-                                                  output => Azurite.DEBUG = true,
-                                                  new List<string>() { "--DEBUG" },
-                                                  false));
+            ParameterManagers.registerCommand(
+                new ParameterManagers.Command("-r", output =>
+                {
+                    if (output.Count == 0)
+                        new REPL();
+                    else
+                        new REPL(output[0]);
+                },
+                new List<string>() { "--repl", "--REPL", "-R" })
+            );
 
-                ParameterManagers.registerCommand(
-                    new ParameterManagers.Command("-r",
-                                                    output => new REPL(),
-                                                    new List<string>() { "--REPL" },
-                                                    true));
-                ParameterManagers.Execute(args);
 
-            }
-            else
-            {
+
+            ParameterManagers.registerCommand(
+                new ParameterManagers.Command("-c",
+                    output =>
+                    {
+                        try
+                        {
+                            Langconfig.load(output[0]);
+
+                        }
+                        catch (Azurite.Ezception e)
+                        {
+                            TextWriter errorWriter = Console.Error;
+                            errorWriter.WriteLine($"{e.code} {e.Message}");
+                            System.Environment.Exit(1);
+                        }
+
+                    },
+                    new List<string>() { "--config" },
+                    false,
+                    () => { Langconfig.load(); }
+                ));
+
+            ParameterManagers.registerCommand(
+                new ParameterManagers.Command("-l", output =>
+                {
+                    Console.Write(Azurite.LanguageHandler.LogLanguage());
+                },
+                    new List<string>() { "--list" },
+                    true
+                    ));
+
+            ParameterManagers.registerCommand(
+                new ParameterManagers.Command("-o", output =>
+                {
+                    outputFile = output[0];
+                },
+                new List<string>() { "--save" },
+                true
+                ));
+
+            ParameterManagers.registerCommand(
+                new ParameterManagers.Command("-d",
+                                              output => Azurite.DEBUG = true,
+                                              new List<string>() { "--DEBUG" },
+                                              false));
+
+            ParameterManagers.registerCommand(
+                new ParameterManagers.Command("-r",
+                                                output => new REPL(),
+                                                new List<string>() { "--REPL" },
+                                                true));
+
+            ParameterManagers.Execute(options.ToArray());
+            if (!Langconfig.is_loaded)
                 Langconfig.load();
 
-                new REPL();
+            foreach (string file in inputFiles)
+            {
+                Azurite.Load(file);
+                Azurite.Compile();
             }
+
+            foreach (string lang in languages)
+            {
+                Azurite.Export(outputFile + "." + lang, lang);
+                Console.WriteLine($"file saved as {outputFile + "." + lang}");
+            }
+
 
             Azurite.DisplayError();
         }
