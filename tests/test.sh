@@ -15,6 +15,7 @@ function test
     fi
 }
 
-test "tests/test1" "azur"
-test "tests/test2" "azullvm"
-test "tests/test2" "azurir"
+TEST_DIR=$(dirname "$0")
+test "${TEST_DIR}/test1" "azur"
+test "${TEST_DIR}/test2" "azullvm"
+test "${TEST_DIR}/test2" "azurir"
