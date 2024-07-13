@@ -21,6 +21,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: Azurite-Language/azurite-stdlib
+        path: azurite-stdlib
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
