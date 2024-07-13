@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Install stdlib
-    - uses: actions/checkout@main
+      uses: actions/checkout@master
       with:
         name: Azurite-Language/azurite-stdlib
     - name: Setup .NET
