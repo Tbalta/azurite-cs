@@ -15,12 +15,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - uses: actions/checkout@v4
+    
     - name: Install stdlib
-    - uses: actions/checkout@master
+    - uses: actions/checkout@main
       with:
         name: Azurite-Language/azurite-stdlib
-        ref: refs/heads/main
-    - uses: actions/checkout@v4
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
