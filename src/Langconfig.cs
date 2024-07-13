@@ -8,7 +8,7 @@ namespace Azurite
         public static void load(string filepath = "")
         {
             if (filepath == "")
-                filepath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/.azurite/stdlib/langconfig.azur";
+                filepath = Azurite.stdlib + "/stdlib/langconfig.azur";
             //add more errors
             is_loaded = true;
 

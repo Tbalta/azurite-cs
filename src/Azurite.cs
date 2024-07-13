@@ -10,6 +10,8 @@ namespace Azurite
     /// </summary>
     public static class Azurite
     {
+        
+        public static string stdlib = "";
 
         /// <summary>
         /// Language currently imported inside Azurite.
@@ -259,10 +261,9 @@ namespace Azurite
                 if (path[0] == '.')
                     Load(path + ".azur", (data.Count > 2) ? data[2] : "");
                 else if (path[0] == '~' && path[1] == '/')
-                    Load(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace("\\", "/") + "/" + path.Substring(2) + ".azur", (data.Count > 2) ? data[2] : "");
+                    Load(Azurite.stdlib + "/" + path.Substring(2) + ".azur", (data.Count > 2) ? data[2] : "");
                 else
-                    Load(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace("\\", "/") + "/.azurite/" + path + ".azur", (data.Count > 2) ? data[2] : "");
-                //Load(data[1].Replace("\"", "").Replace($"{{{Langconfig.libpath}}}", Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace("\\", "/") + "/.azurite"), (data.Count > 2) ? data[2] : "");
+                    Load(Azurite.stdlib + "/" + path + ".azur", (data.Count > 2) ? data[2] : "");
                 return true;
             }
 
