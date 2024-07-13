@@ -28,7 +28,8 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore ./src
     - name: Build
-      run: dotnet build ./src --no-restore
+      run: dotnet build ./src -o ./bin--no-restore
+    - run: echo "${PWD}/.local/bin" >> $GITHUB_PATH
     - run: chmod +x ./tests/test.sh
     - name: Test
       run: ./tests/test.sh
