@@ -29,5 +29,6 @@ jobs:
       run: dotnet restore ./src
     - name: Build
       run: dotnet build ./src --no-restore
+    - run: chmod +x ./tests/test.sh
     - name: Test
       run: ./tests/test.sh
