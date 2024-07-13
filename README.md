@@ -21,80 +21,74 @@ basic usage:
 ```
 
 ## Translates
-This is the core of the language, translates allow us to defines the pattern matching and the behavior of the language. For instance let’s define a translate for the function `+`:
+This is the core of the language, translates allow us to defines the pattern matching and the behavior of the language. For instance let's define a translate for the function `+`:
 ```lisp
 (translate ("+" a b) ("any" "any" "any") (azur "" "{a} + {b}"))
-
 ```
+
 The translate defined here will be used to match any expression of the form `(+ a b)` with a and b being any expression.
 
-There is different ways to specify the "level" of matching of the parameters of the translate.
+**Exercice - 1**
+- Create a translate for the function `-` and `*`, transforming the expression `(- 5 (* 2 3))` into `(5 - (2 * 3))`.
+
+
 ### The strong matching
 When the name of the paramters is between double quote, like `"+"` it will match the token +.
 
+**Exercice - 2**
+- Write two translates for the function `*`:
+    - The first one will assume you have a double function, and will transform `(* 2 a)` into `double(a)`
+    - The second one will transform `(* a b)` into `(a * b)`.
+*Tips*: The precedence of one translate is the order of appearance of the translate in the code, the first translate will have the highest precedence.
+
+### The weak matching
+When the name of the parameters is between single quote, like `'+'` it will match with any atom expression.
+
+**Exercice - 3**
+- Write 2 translates for transforming a variable declaration.
+    - The first translate will transform `(let a 5)` into `a = 5`
+    - The second one will be used to have an error in case of a wrong variable name, transforming `(let (+ 5 5) 5)` into `(error)`
+*Tips*: Usually no error translate are created, but it can be useful in some cases.
+
 ### The optional strong matching
-```lisp
-(translate ("foo|x|bar") ("any") (azur "" "{x}"))
-```
-When the name of the parameters is between pipes, it can match anything as long as the element at the left and at the right are the same. For example the following lines will be matched:
-```lisp
-(foofoobar) (// x: foo)
-(foobar) (// x: )
-```
-The following lines will not be matched.
-```lisp
-(foofoba) 
-```
+When the name of the parameters is between pipes, it can match anything as long as the element at the left and at the right are the same, like `foo|a|foo`. Will match `foo bar foo` but not `foo bar baz`.
 
-### The weak matching
-```lisp
-(translate ('+' a b) ("any" "any" "any") (azur "" "{a} + {b}"))
-(// Please do not the ')
-```
-When the parameter is between single quote, like `'+'` it will be matched with any atom expression. The following lines will be matched:
-```lisp
-(+ 2 3) (// +: +, a: 2, b: 3)
-(- 2 3) (// +: -, a: 2, b: 3)
-(+ 2 (- 4 5)) (// +: +, a: 2, b: (-4 5))
-```
-The following lines will not be matched:
-```lisp
-((+ 2 5) 5 6) (// the first symbol is not an atom)
-(+ 2 5 5) (// There is too much arguments)
-(+ 2) (// There is not enough arguments)
-```
 
-### The weak matching
-```lisp
-(translate (+ a b) ("any" "any" "any") (azur "" "{a} + {b}"))
-```
-When the parameter is left alone, like `+` it will be matched with any expression. The following lines will be matched:
-```lisp
-((+ 2 3) 2 3) (// +: (+ 2 3), a: 2, b: 3)
-(+ 2 3) (// +: +, a: 2, b: 3)
-(foo 2 3) (// +: foo, a: 2, b: 3)
-```
-The following lines will not be matched:
-```lisp
-(+ 2 3 5) (// There is too much arguments)
-(+ 2) (// There is not enough arguments)
-```
+**Exercice - 4**
+- Write 11 translates to detect if a number is even or odd
+    - Transform `(is_even 2)` into `2 is even`
+    - Transform `(is_even 3)` into `3 is odd`
+    - Transform `(is_even 42)` into `42 is even`
+
+
 ### List
-__forget arity embrace parenthesis__
+__Embrace parenthesis__
+
+A list is a sequence of elements separated by space and embraced by parenthesis. For instance `(1 2 3)` is a list of 3 elements `1`, `2` and `3`. `(+ 1 2)` is also a list of 3 elements `+`, `1` and `2`, whereas `((+ 1 2))` is a list of 1 element `(+ 1 2)`.
+
+When the name of the parameters is suffixed by `...`, it's mean that parameter will be considered as a list, the parameter will match anything as long it's not an atom. Special rules are applied when replacing the parameter in the body.
+
 ```lisp
-(translate ("list" a...) ("any") (azur "" "{a}"))
+(translate ("list" param...) ("any") (azur "" "{param (param separator head tail)}"))
 ```
-Those exressions will be matched:
-```lisp
-(list (1 2 3))
-(list 1)
-(list (1))
-```
-The following lines will not be matched:
-```lisp
-(list)
-(list 1 2 3)
-```
+The head and tail fields are optional, but if one is present, the other must be present too.
+
+**Exercice - 5**
+- Write a translate for the function `list` that will transform `(list (1 2 3))` into `[1,2,3]`.
+
+
+__Going crazy__
+_Have you noticed the format of the body is exactly the same as an expression?_
+Well, it's because it is an expression. `param`, `separator`, `head` and `tail` are expressions that will be evaluated before being replaced in the body.
+_Note_: The original expression is used when evaluating the parameters, no transformations are applied before.
+
+**Exercice - 6**
+- Write a translate for the function `list` that will transform `(list (1 2 3))` into `[1 * 3, double(3), 3 * 3]`.
+
+### The eval balise
+__Even crazier__
+
+
 
 # Macro
 Macro are evaluated from the more nested to the less nested.

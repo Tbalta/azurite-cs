@@ -1,0 +1,9 @@
+(translate ("num") ("num") (test "" "num"))
+
+(translate ("*" "2" b) ("num" "num" "num") (test "" "double({b})"))
+(translate ("*" a b) ("num" "num" "num") (test "" "{a} * {b}"))
+
+(translate ("list" a...) ("any" "any") (test "" "{a ((* a 3) ,\x20 [ ]) }"))
+
+
+(list (1 2 3))

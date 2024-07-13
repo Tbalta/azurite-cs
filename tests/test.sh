@@ -26,3 +26,4 @@ TEST_DIR=$(dirname "$0")
 test "${TEST_DIR}/test1" "azur" "$stdlib_path"
 test "${TEST_DIR}/test2" "azullvm" "$stdlib_path"
 test "${TEST_DIR}/test2" "azurir" "$stdlib_path"
+test "${TEST_DIR}/test3" "test" "$stdlib_path"
