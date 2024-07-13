@@ -741,6 +741,7 @@ namespace Azurite
             Console.WriteLine("  -s, --save <file>        Save the output to a file");
             Console.WriteLine("  -d, --DEBUG              Enable debug mode");
             Console.WriteLine("  -h, --help               Show this help message");
+            Console.WriteLine("  --stdlib                 Specify the standard library path");
         }
         public const int MAX_RECURSION_ALLOWED = 100;
         public static void Main(string[] args)
@@ -790,25 +791,11 @@ namespace Azurite
 
 
             ParameterManagers.registerCommand(
-                new ParameterManagers.Command("-c",
-                    output =>
-                    {
-                        try
-                        {
-                            Langconfig.load(output[0]);
-
-                        }
-                        catch (Azurite.Ezception e)
-                        {
-                            TextWriter errorWriter = Console.Error;
-                            errorWriter.WriteLine($"{e.code} {e.Message}");
-                            System.Environment.Exit(1);
-                        }
-
-                    },
+                new ParameterManagers.Command("--stdlib",
+                    output => Azurite.stdlib = output[0],
                     new List<string>() { "--config" },
                     false,
-                    () => { Langconfig.load(); }
+                    () => { Azurite.stdlib = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/.azurite"; }
                 ));
 
             ParameterManagers.registerCommand(

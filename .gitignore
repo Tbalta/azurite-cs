@@ -4,3 +4,4 @@ src/bin
 src/properties
 bin/
 .mono
+tests/*.out*

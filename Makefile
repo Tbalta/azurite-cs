@@ -1,7 +1,7 @@
 
 
 build:
-	dotnet publish ./src
+	dotnet publish ./src -o ./bin
 
 install: build
 	cp ./src/bin/Debug/netcoreapp6.0/publish/Azurite ${HOME}/.azurite/bin

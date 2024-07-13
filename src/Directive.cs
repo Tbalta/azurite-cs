@@ -346,7 +346,7 @@ namespace Azurite
                 string cible = elemt[0];
                 string import = "";
                 if (elemt[1] != "")
-                    import = elemt[1].Substring(1, elemt[1].Length - 2).Replace($"{{{Langconfig.libpath}}}", Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace("\\", "/") + "/.azurite"); ;
+                    import = elemt[1].Substring(1, elemt[1].Length - 2).Replace($"{{{Langconfig.libpath}}}", Azurite.stdlib); ;
                 string effect = elemt[2].Substring(1, elemt[2].Length - 2);
 
                 AddInstruction(cible, new Instruction(import, proto, effect));
@@ -513,7 +513,7 @@ namespace Azurite
             int size = instruction.proto.Count;
             // Replace global variable
 
-            effect.Replace($"{{{Langconfig.libpath}}}", Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace("\\", "/") + "/.azurite");
+            effect.Replace($"{{{Langconfig.libpath}}}", Azurite.stdlib);
 
             int offset = 0;
             for (int i = 0; i < size; i++)
