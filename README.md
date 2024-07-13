@@ -95,3 +95,29 @@ The following lines will not be matched:
 (list)
 (list 1 2 3)
 ```
+
+# Macro
+Macro are evaluated from the more nested to the less nested.
+```lisp
+(second (first))
+```
+## macro matching
+Two factor are used for the macro matching.
+* The form of the AST
+* Matching level of different node in the AST
+
+### The form of the AST
+```lisp
+(macro ("inverse" a b) (b a))
+```
+this macro will match the expression `(inverse a b)` with a and b being any expression.
+```lisp
+(macro ("inverse2" (a) b) (b a))
+```
+this macro will match the expression `(inverse2 (a) b)` with a and b being any expression.
+For instance:
+```lisp
+(inverse2 (1) 4) (// inverse2: 4 1)
+(inverse2 ((1 2 3)) 4) (// inverse2: 4 (1 2 3))
+(inverse2 ((1 2 3)) (1 2)) (// inverse2: (1 2) (1 2 3))
+```

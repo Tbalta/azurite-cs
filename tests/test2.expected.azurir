@@ -1,0 +1,17 @@
+GOTO main
+defun facto
+   set n
+PUSH(LT n 2 )
+IF GOTO_RELATIVE THEN 
+PUSH_CALLSTACK()
+PUSH(SUB n 1 )
+JSR facto
+PUSH(MULT n POP() )
+THEN PUSH(1)
+ENDIF
+POP_CALLSTACK()
+
+/main
+PUSH_CALLSTACK()
+PUSH(6)
+JSR facto

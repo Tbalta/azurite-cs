@@ -1,4 +1,4 @@
-(import "stdlib/prellvm")
+(import "stdlib/azullvm")
 (import "stdlib/azurir")
 (import "stdlib/csharp")
 (defun facto (n) (if (< n 2) 1 (* n (facto ((- n 1))))))

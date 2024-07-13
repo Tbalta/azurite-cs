@@ -1,10 +1,12 @@
+#!/bin/bash
+
 function test
 {
     filename=$1
     target=$2
     Azurite "$filename.azur" -o "$filename.out" -t "$target" > /dev/null
     # exit 1 if the files are different
-    diff "$filename.out.$target" "$filename.expected"
+    diff "$filename.out.$target" "$filename.expected.$target"
     if [ $? -eq 0 ]; then
         echo "Test $filename passed"
     else
@@ -13,6 +15,6 @@ function test
     fi
 }
 
-test "test1" "azur"
-test "test2" "prellvm"
-test "test2" "azurir"
+test "tests/test1" "azur"
+test "tests/test2" "azullvm"
+test "tests/test2" "azurir"
