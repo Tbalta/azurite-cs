@@ -5,3 +5,4 @@ src/properties
 bin/
 .mono
 tests/*.out*
+tests/tutorial/*.out*
