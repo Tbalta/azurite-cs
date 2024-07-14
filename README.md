@@ -37,8 +37,8 @@ When the name of the paramters is between double quote, like `"+"` it will match
 
 **Exercice - 2**
 - Write two translates for the function `*`:
-    - The first one will assume you have a double function, and will transform `(* 2 a)` into `double(a)`
-    - The second one will transform `(* a b)` into `(a * b)`.
+    - The first one will assume you have a double function, and will transform `(* 2 3)` into `double(3)`
+    - The second one will transform `(* 1 3)` into `(1 * 3)`.
 *Tips*: The precedence of one translate is the order of appearance of the translate in the code, the first translate will have the highest precedence.
 
 ### The weak matching
@@ -59,6 +59,7 @@ When the name of the parameters is between pipes, it can match anything as long 
     - Transform `(is_even 2)` into `2 is even`
     - Transform `(is_even 3)` into `3 is odd`
     - Transform `(is_even 42)` into `42 is even`
+    - Transform `(is_even 55)` into `55 is odd`
 
 
 ### List
@@ -69,7 +70,7 @@ A list is a sequence of elements separated by space and embraced by parenthesis.
 When the name of the parameters is suffixed by `...`, it's mean that parameter will be considered as a list, the parameter will match anything as long it's not an atom. Special rules are applied when replacing the parameter in the body.
 
 ```lisp
-(translate ("list" param...) ("any") (azur "" "{param (param separator head tail)}"))
+(translate ("list" param...) ("any" "any") (azur "" "{param (param separator head tail)}"))
 ```
 The head and tail fields are optional, but if one is present, the other must be present too.
 
@@ -87,6 +88,25 @@ _Note_: The original expression is used when evaluating the parameters, no trans
 
 ### The eval balise
 __Even crazier__
+Expressions placed between `<eval >` will be re-evaluated once all the parameters are replaced in the body.
+
+```lisp
+(translate ("=" "|x|2" "|y|2") ("any" "any") (azur "" "<eval (= {x} {y})>"))
+(translate ("=" "1" "1") ("any") (azur "" "true"))
+(= 1 1)
+(= 12 12)
+```
+The code above will output:
+```
+true
+true
+```
+
+**Exercice - 7**
+- Let's create a translate for the `if` function that will transform `(if (= 1 1) 2 3)` into `2` and `(if (= 1 2) 2 3)` into `3`.
+    - Start by extending the previous example to support the comparison to all numbers.
+    - Then create a translate for the `if` function.
+
 
 
 

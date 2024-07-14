@@ -11,6 +11,9 @@ install: build
 test:
 	./tests/test.sh
 
-clean:
+clean-test:
+	$(RM) tests/*.out.*
+	$(RM) tests/tutorial/*.out.*
+
+clean: clean-test
 	dotnet clean ./src
-	rm tests/*.out.*
