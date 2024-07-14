@@ -1,0 +1,4 @@
+(translate ("let" 'name' val) ("any" "any" "any") (azur "" "{name} = {val}"))
+(translate ("let" name val) ("any" "any" "any") (azur "" "(error)"))
+(let a 5)
+(let (+ 5 5) 5)
