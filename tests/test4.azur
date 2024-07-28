@@ -1,0 +1,4 @@
+(macro ("double" "5") (10))
+(macro ("double" "[a]") ("+" "b" "b"))
+(translate ("my_double" a) ("any" "any") (azur "" "<eval (double [a])>"))
+(my_double 5)

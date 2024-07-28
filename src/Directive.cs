@@ -370,9 +370,8 @@ namespace Azurite
 
             if (text == "")
                 return false;
-
-            Parser.SExpression expression = MacroManager.Execute(new Parser.SExpression(text));
-            // Parser.SExpression expression = new Parser.SExpression(match[0].Groups[1].Value.Trim());
+            
+            Parser.SExpression expression = new Parser.SExpression(text);
 
             for (int i = 0; i < argumentName.Count; i++)
             {
