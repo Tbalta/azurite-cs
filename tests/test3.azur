@@ -1,0 +1,25 @@
+(import basics)
+(basics azur)
+
+(translate ("print" "=" a b) ("any" "any" "any") (azur "" "({a} == {b})"))
+(translate ("print" "+" a b) ("any" "any" "any") (azur "" "({a} + {b})"))
+(translate ("print" "-" a b) ("any" "any" "any") (azur "" "({a} - {b})"))
+(translate ("print" "*" a b) ("any" "any" "any") (azur "" "({a} * {b})"))
+(translate ("print" "/" a b) ("any" "any" "any") (azur "" "({a} / {b})"))
+(translate ("print" "and" a b) ("any" "any" "any") (azur "" "({a} && {b})"))
+(translate ("print" "if" cond a b) ("any" "any" "any") (azur "" "({cond}? {a} : {b})"))
+
+
+(macro ("first" callme (head rest...))(callme head rest))
+(macro ("first" callme (head)) (callme head))
+
+
+(translate ("all" element list) ("any" "any") (azur "" "<eval (eval and (can_eval [element]) (first all [list]))>"))
+(translate ("all" element) ("any" "any") (azur "" "<eval (can_eval [element])>"))
+
+(all 1 (2 3 4 5))
+(all 1 (2 3 4 (+ 5 2)))
+(all 1 (2 3 4 (+ x 2)))
+(all 1 (x 3 4 (+ x 2)))
+(all x)
+(all 1)
