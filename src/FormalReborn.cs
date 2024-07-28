@@ -229,7 +229,7 @@ namespace Azurite
             var protoList = Directive.find_matching_proto(expression);
             if (protoList.Count == 0)
                 return ToListType(expression.LoadAllChild().ConvertAll(l => GetType(l, "")).ConvertAll(l => l.Last()));
-            var protoTypes = protoList.ConvertAll(x => x.Item1.Values.ToList().ConvertAll(x => x.Value).Append(x.Item2).ToList());
+            var protoTypes = protoList.ConvertAll(x => x.Item1.ConvertAll(x => x.Value.Value).Append(x.Item2).ToList());
             List<string> errors = new List<string>();
 
             for (int index = 0; index < protoTypes.Count; index++)

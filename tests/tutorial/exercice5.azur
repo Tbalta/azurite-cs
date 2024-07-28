@@ -1,0 +1,2 @@
+(translate ("list" param...) ("any" "any") (azur "" "{param (param , [ ])}"))
+(list (1 2 3))

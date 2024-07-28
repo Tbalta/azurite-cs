@@ -1,0 +1,4 @@
+(translate ("*" "2" a) ("num" "num") (azur "" "double({a})"))
+(translate ("*" a b) ("num" "num") (azur "" "({a} * {b})"))
+(* 2 3)
+(* 1 3)

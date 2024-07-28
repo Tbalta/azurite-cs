@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-using Prototype = System.Collections.Generic.Dictionary<string, System.Collections.Generic.KeyValuePair<Azurite.Directive.MATCH_LEVEL, string>>;
+using Prototype = System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, System.Collections.Generic.KeyValuePair<Azurite.Directive.MATCH_LEVEL, string>>>;
 namespace Azurite
 {
     using Formal = FormalReborn;
@@ -325,9 +325,12 @@ namespace Azurite
                     arg_type = type[i - offset];
                 else
                     throw new Azurite.Ezception(504, $"There is not enough type for the arguments {name}");
-                if (proto.ContainsKey(name))
+                // Check if parameters is already present except for exact match, also check for partial match
+                if (proto.Where(val => val.Value.Key != MATCH_LEVEL.EXACT).Any(val => val.Key == name || val.Key.Contains("|" + name+ "|") || name.Contains("|" + val.Key + "|")))
                     throw new Azurite.Ezception(505, "Two parameters have the same name");
-                proto.Add(name, new KeyValuePair<MATCH_LEVEL, string>(level, arg_type));
+                
+                // Try adding and silently ignore if the key already exist
+                proto.Add(new KeyValuePair<string, KeyValuePair<MATCH_LEVEL, string>>(name, new KeyValuePair<MATCH_LEVEL, string>(level, arg_type)));
             }
             protoList.Add(new Tuple<Prototype, string>(proto, type.Last()));
             Lexer.add_to_globals(new Lexer.Symbol(arguments[0].Key, type));
@@ -502,7 +505,7 @@ namespace Azurite
                     throw new Azurite.Ezception(506, "stack overflow " + expression.Stringify() + " match with " + instruction.ToString());
                 Transpiler.numberNames.Add(expression.Stringify());
             }
-            var ArgumentName = instruction.proto.Keys.ToList();
+            var ArgumentName = instruction.proto.ConvertAll(x => x.Key);
 
             // addCustomToLexer(arguments, instruction);
 

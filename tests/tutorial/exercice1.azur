@@ -1,0 +1,4 @@
+(translate ("-" a b) ("any" "any" "any") (azur "" "({a} - {b})"))
+(translate ("*" a b) ("any" "any" "any") (azur "" "({a} * {b})"))
+
+(- 5 (* 2 3))

@@ -1,0 +1,18 @@
+(translate ("is_even" "0") ("any" "any") (azur "" "0 is even"))
+(translate ("is_even" "2") ("any" "any") (azur "" "2 is even"))
+(translate ("is_even" "4") ("any" "any") (azur "" "4 is even"))
+(translate ("is_even" "6") ("any" "any") (azur "" "6 is even"))
+(translate ("is_even" "8") ("any" "any") (azur "" "8 is even"))
+(translate ("is_even" "|x|0") ("any" "any") (azur "" "{x}0 is even"))
+(translate ("is_even" "|x|2") ("any" "any") (azur "" "{x}2 is even"))
+(translate ("is_even" "|x|4") ("any" "any") (azur "" "{x}4 is even"))
+(translate ("is_even" "|x|6") ("any" "any") (azur "" "{x}6 is even"))
+(translate ("is_even" "|x|8") ("any" "any") (azur "" "{x}8 is even"))
+(translate ("is_even" x) ("any" "any") (azur "" "{x} is odd"))
+
+
+
+(is_even 2)
+(is_even 3)
+(is_even 42)
+(is_even 55)
