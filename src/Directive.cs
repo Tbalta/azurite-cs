@@ -358,11 +358,21 @@ namespace Azurite
         #endregion
         #region instruction_convert
 
+        private static bool PrintPrototype(Prototype proto)
+        {
+            foreach (var item in proto)
+            {
+                Console.WriteLine(item.Key + " : " + item.Value.Key + " : " + item.Value.Value);
+            }
+            return true;
+        }
+
         /// <summary> Search expression to evaluate in a string and convert the expression</summary>
         /// <return> Return True while they are expression to evaluate.</return>
         /// <param name="effect"> The string to search in.</param>
         /// <param name="language"> The language to convert in.</param>
-        private static bool Eval(ref string effect, List<string> argumentName, List<Parser.SExpression> arguments, string language)
+        /// <param name="language"> The language to convert in.</param>
+        private static bool Eval(ref string effect, Instruction instruction, List<Parser.SExpression> arguments, string language)
         {
             // Regex reg = new Regex("<eval (.*?)>");
             // MatchCollection match = reg.Matches(effect);
@@ -371,6 +381,7 @@ namespace Azurite
             if (text == "")
                 return false;
             
+            List<string> argumentName = instruction.proto.ConvertAll(x => x.Key);
             Parser.SExpression expression = new Parser.SExpression(text);
 
             for (int i = 0; i < argumentName.Count; i++)
@@ -384,7 +395,7 @@ namespace Azurite
             }
             catch (Azurite.Ezception e)
             {
-                throw new Azurite.Ezception(501, $"Unable to evaluate the expression inside the eval: <eval {text}>", expression.Stringify(), -1, e);
+                throw new Azurite.Ezception(501, $"{instruction}: Unable to evaluate the expression inside the eval", expression.Stringify(), -1, e);
             }
             catch (Exception e)
             {
@@ -501,14 +512,13 @@ namespace Azurite
             if (Transpiler.track_recursion)
             {
                 if (Transpiler.numberNames.Contains(expression.Stringify()))
-                    throw new Azurite.Ezception(506, "stack overflow " + expression.Stringify() + " match with " + instruction.ToString());
-                Transpiler.numberNames.Add(expression.Stringify());
+                {
+                    string callStack = string.Join(" -> ", Transpiler.numberNames.Reverse());
+                    throw new Azurite.Ezception(506, "stack overflow " + callStack + " -> " + expression.Stringify());
+                }
+                Transpiler.numberNames.Push(expression.Stringify());
             }
             var ArgumentName = instruction.proto.ConvertAll(x => x.Key);
-
-            // addCustomToLexer(arguments, instruction);
-
-
 
             string effect = instruction.effect;
 
@@ -664,9 +674,9 @@ namespace Azurite
             }
 
             int TOUR = 0;
-            while (effect != null && TOUR < MainClass.MAX_RECURSION_ALLOWED && Eval(ref effect, ArgumentName, arguments, language))
+            while (effect != null && TOUR < MainClass.MAX_RECURSION_ALLOWED && Eval(ref effect, instruction, arguments, language))
                 TOUR++;
-            Transpiler.numberNames.Remove(expression.Stringify());
+            Transpiler.numberNames.Pop();
             return effect;
 
         }

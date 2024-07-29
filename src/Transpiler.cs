@@ -9,7 +9,7 @@ namespace Azurite
     public class Transpiler
     {
         public static bool track_recursion = true;
-        public static HashSet<string> numberNames = new HashSet<string>();
+        public static Stack<string> numberNames = new Stack<string>();
 
         /// <summary>
         /// Convert an S-expression in the specified language
@@ -54,7 +54,7 @@ namespace Azurite
 
         public static void ResetTracking()
         {
-            numberNames = new HashSet<string>();
+            numberNames = new Stack<string>();
         }
 
     }
