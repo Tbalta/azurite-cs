@@ -112,19 +112,24 @@ namespace Azurite
             return true;
         }
 
+        public static int protoScore(Prototype proto)
+        {
+            var proto_match_level = proto.Select(x => x.Value.Key);
+            var precedence = new Dictionary<MATCH_LEVEL, int>() {
+                {MATCH_LEVEL.EXACT, 5},
+                {MATCH_LEVEL.PARTIAL, 4},
+                {MATCH_LEVEL.STRICT, 3},
+                {MATCH_LEVEL.LIGHT, 2},
+                {MATCH_LEVEL.LIST, 1},
+                {MATCH_LEVEL.CALLABLE, 0}
+            };
+
+            return proto_match_level.Sum(x => precedence[x]);
+        }
+
         public static int comparePrototype(Prototype proto1, Prototype proto2)
         {
-            var proto1_match_level = proto1.Select(x => x.Value.Key);
-            var proto2_match_level = proto2.Select(x => x.Value.Key);
-            var precedence = new List<MATCH_LEVEL>() { MATCH_LEVEL.EXACT, MATCH_LEVEL.PARTIAL, MATCH_LEVEL.STRICT, MATCH_LEVEL.LIGHT, MATCH_LEVEL.LIST, MATCH_LEVEL.CALLABLE };
-            foreach (var level in precedence)
-            {
-                var sum1 = proto1_match_level.Sum(x => x == level ? 1 : 0);
-                var sum2 = proto2_match_level.Sum(x => x == level ? 1 : 0);
-                if (sum2 - sum1 != 0)
-                    return sum2 - sum1;
-            }
-            return 0;
+            return protoScore(proto1) - protoScore(proto2);
         }
 
         public static List<Tuple<Prototype, string>> find_matching_proto(Parser.SExpression expression)
@@ -206,22 +211,11 @@ namespace Azurite
         private static Instruction Match(string lang, Parser.SExpression expression, string forced = null)
         {
             var arguments = expression.LoadAllChild();
-            // var expresionType = FormalReborn.GetType(expression);
-            foreach (Instruction instruction in instructions_list[Azurite.LanguageHandler.getLanguageIndex(lang)])
-            {
-                Func<int, KeyValuePair<string, KeyValuePair<MATCH_LEVEL, string>>> getProto = index => instruction.proto.ElementAt(index);
-                if (arguments.Count != instruction.proto.Count)
-                    continue;
-                int i = 0;
-                while (i < instruction.proto.Count && arguments[i].matchProto(getProto(i)) /*&& FormalReborn.compare_type(getProto(i).Value.Value, expresionType[i])*/)
-                {
-                    i++;
-                }
-
-                if (i == instruction.proto.Count)
-                    return instruction;
-            }
-            return new Instruction(null, null, null);
+            var lang_instruction = instructions_list[Azurite.LanguageHandler.getLanguageIndex(lang)];
+            var result = lang_instruction.Where(x => x.proto.Count == arguments.Count && SexpressionMatch(expression, x.proto));
+            if (result.Count() == 0)
+                return new Instruction(null, null, null);
+            return result.MaxBy(x => protoScore(x.proto));
         }
 
         /// <summary> Determine the Match level of an expression. </summary>
