@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -742,6 +743,7 @@ namespace Azurite
             Console.WriteLine("  -d, --DEBUG              Enable debug mode");
             Console.WriteLine("  -h, --help               Show this help message");
             Console.WriteLine("  --stdlib                 Specify the standard library path");
+            Console.WriteLine("  -g, --debugger           Enable the debugger");
         }
         public const int MAX_RECURSION_ALLOWED = 100;
         public static void Main(string[] args)
@@ -827,6 +829,10 @@ namespace Azurite
                                                 output => new REPL(),
                                                 new List<string>() { "--REPL" },
                                                 true));
+            ParameterManagers.registerCommand(
+                new ParameterManagers.Command("-g", output => Azurite.debugger = true,
+                                              new List<string>() { "--debugger" },
+                                              false));
 
             ParameterManagers.Execute(options.ToArray());
             if (!Langconfig.is_loaded)
@@ -836,6 +842,11 @@ namespace Azurite
             {
                 Azurite.Load(file);
                 Azurite.Compile();
+            }
+
+            if (Azurite.debugger)
+            {
+                Debugger.Breakpoint("main", new Dictionary<string, string>());
             }
 
             foreach (string lang in languages)

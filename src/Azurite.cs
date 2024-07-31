@@ -13,6 +13,8 @@ namespace Azurite
         
         public static string stdlib = "";
 
+        public static bool debugger = false;
+
         /// <summary>
         /// Language currently imported inside Azurite.
         /// </summary>

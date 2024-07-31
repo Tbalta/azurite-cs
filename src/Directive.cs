@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -366,17 +367,38 @@ namespace Azurite
         /// <param name="effect"> The string to search in.</param>
         /// <param name="language"> The language to convert in.</param>
         /// <param name="language"> The language to convert in.</param>
-        private static bool Eval(ref string effect, Instruction instruction, List<Parser.SExpression> arguments, string language)
+        private static bool Eval(ref string effect, Instruction instruction, Parser.SExpression p_expression, string language)
         {
-            // Regex reg = new Regex("<eval (.*?)>");
-            // MatchCollection match = reg.Matches(effect);
             string text = GetEvalText(effect);
+            bool step = false;
+            List<Parser.SExpression> arguments = p_expression.LoadAllChild();
+
+            
 
             if (text == "")
                 return false;
+            var localVariables = new Dictionary<string, string>
+            {
+                { "effect", effect.Replace(text, $"\x1b[31m{text}\x1b[0m") },
+                { "callstack", string.Join(" -> ", Transpiler.numberNames.Reverse()) },
+                { "instruction", instruction.ToString() }
+            };
             
             List<string> argumentName = instruction.proto.ConvertAll(x => x.Key);
             Parser.SExpression expression = new Parser.SExpression(text);
+
+            for (int i = 0; i < argumentName.Count; i++)
+            {
+                localVariables.TryAdd("$"+argumentName[i], arguments[i].Stringify());
+            }
+
+            if (Azurite.debugger && Debugger.step)
+            {
+                Debugger.Breakpoint(p_expression.Stringify(), localVariables);
+                step = Debugger.step;
+                Debugger.step = Debugger.stepIn;
+                Debugger.stepIn = false;
+            }
 
             for (int i = 0; i < argumentName.Count; i++)
             {
@@ -395,6 +417,7 @@ namespace Azurite
             {
                 throw new Azurite.Ezception(501, $"Unexpected error while parsing {expression.Stringify()} inside <eval {text}>, associated error message: {e.Message}");
             }
+            Debugger.step = step;
             return true;
         }
         private static string GetEvalText(string effect)
@@ -422,40 +445,6 @@ namespace Azurite
             return effect.Substring(index, i - index - 1);
 
         }
-
-        /*/// <summary> Search expression to concatenate in a string and convert the expression</summary>
-        /// <return> Return the effect after application.</return>
-        /// <param name="effect"> The string to search in.</param>
-        /// <param name="language"> The language to convert in.</param>
-        private static string Concat(ref string effect, List<string> argumentName, List<Parser.SExpression> arguments, string language)
-        {
-            Regex reg = new Regex("(.*?)@@(.*?)@@");
-            MatchCollection match = reg.Matches(effect);
-
-            for(MatchCollection match = reg.Matches(effect); match.Count > 0; match = reg.Matches(effect)){
-                string new_lhs = () => { var i = argumentName.FindIndex( x => x == match[0].Groups[0].Value); return i == -1 ? match[0].Groups[0].Value : arguments[i];};
-                string new_rhs = () => { var i = argumentName.FindIndex( x => x == match[0].Groups[1].Value); return i == -1 ? match[0].Groups[1].Value : arguments[i];};
-                effect.Replace(match[0].Groups[0].Value + "@@" + match[0].Groups[1].Value, new_lhs + new_rhs);
-            }
-
-            while(match.Count > 0){
-
-                match = reg.Matches(effect);
-            }
-
-            if (match.Count == 0)
-                return false;
-
-            Parser.SExpression expression = new Parser.SExpression(match[0].Groups[1].Value.Trim() + match[1].Groups[1].Value.Trim());
-            for (int i = 0; i < argumentName.Count; i++)
-            {
-                if (effect.Contains($"[{argumentName[i]}]"))
-                    expression.Map((Parser.SExpression expr) => (expr.data == $"[{argumentName[i]}]") ? arguments[i] : expr);
-            }
-
-            effect = reg.Replace(effect, Transpiler.Convert(Azurite.MacroApply(expression), language));
-            return true;
-        }*/
 
         /// <summary> Search for strict match level with polymorphe type, try to type them and add it to the lexer
         /// <param name="expression"> The list of arguments of the instruction.</param>
@@ -521,15 +510,47 @@ namespace Azurite
 
             effect.Replace($"{{{Langconfig.libpath}}}", Azurite.stdlib);
 
+            var localVariables = new Dictionary<string, string>();
+            for (int i = 0; i < ArgumentName.Count; i++)
+            {
+                localVariables.TryAdd("$"+ArgumentName[i], arguments[i].Stringify());
+            }
+            localVariables.Add("effect", effect);
+            localVariables.Add("callstack", string.Join(" -> ", Transpiler.numberNames.Reverse()));
+            localVariables.Add("instruction", instruction.ToString());
+            localVariables.Add("originalEffect", language);
+
+            bool debuggerWillBreak = ArgumentName.Any(x => effect.Contains($"{{{x}}}")) || effect.Contains("<eval ");
+            bool step = false;
+            bool stopInEval = false;
+            
+            if (Azurite.debugger && Debugger.ShouldBreak(expression.Stringify()) || Debugger.step)
+            {
+                if (!debuggerWillBreak)
+                {
+                    Debugger.Breakpoint(expression.Stringify(), localVariables);
+                    step = Debugger.step;
+                    Debugger.step = Debugger.stepIn;
+                    Debugger.stepIn = false;
+                } else 
+                {
+                    stopInEval = true;
+                }
+            }
+
+
+
             int offset = 0;
+
             for (int i = 0; i < size; i++)
             {
+                // If "step" need to be restored
+                bool restore = false;
 
                 if (i < forced_type.Count)
                     type = forced_type[i - 1];
                 else
                     type = null;
-                //List<Parser.SExpression> child = expression.LoadAllChild();
 
 
                 List<string> expresionType = new List<string>();
@@ -548,6 +569,19 @@ namespace Azurite
                     String.Join(" ", expresionType.Select(type => Transpiler.Convert($"({type})", language))));
                 }
 
+                if (Azurite.debugger && effect.Contains($"{{{instruction.proto.ElementAt(i).Key}}}"))
+                {
+                    if (Debugger.ShouldBreak(expression.Stringify()) || Debugger.step)
+                    {
+                        step = false;
+                        localVariables["effect"] = effect.Replace($"{{{instruction.proto.ElementAt(i).Key}}}", $"\x1b[31m{{{instruction.proto.ElementAt(i).Key}}}\x1b[0m");
+                        Debugger.Breakpoint(expression.Stringify(), localVariables);
+                        step = Debugger.step;
+                        Debugger.step = Debugger.stepIn;
+                        Debugger.stepIn = false;
+                        restore = true;
+                    }
+                }
 
                 switch (instruction.proto.ElementAt(i).Value.Key)
                 {
@@ -658,6 +692,11 @@ namespace Azurite
                             effect = effect.Replace($"{{{variable_name}}}", Transpiler.Convert("(" + temp_argu + ")", language, type));
                         break;
                 }
+                
+                if (restore)
+                {
+                    Debugger.step = step;
+                }
 
             }
 
@@ -668,7 +707,8 @@ namespace Azurite
             }
 
             int TOUR = 0;
-            while (effect != null && TOUR < MainClass.MAX_RECURSION_ALLOWED && Eval(ref effect, instruction, arguments, language))
+            Debugger.step = Debugger.step || stopInEval;
+            while (effect != null && TOUR < MainClass.MAX_RECURSION_ALLOWED && Eval(ref effect, instruction, expression, language))
                 TOUR++;
             Transpiler.numberNames.Pop();
             return effect;
