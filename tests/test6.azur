@@ -1,6 +1,11 @@
 (import basics)
 (basics azur)
 
+
+(macro ("print" ('op' a b)) (print op a b))
+(macro ("print" ('op' a b c)) (print op a b c))
+
+(translate ("print" 'a') ("any" "any" "any") (azur "" "{a}"))
 (translate ("print" "=" a b) ("any" "any" "any") (azur "" "({a} == {b})"))
 (translate ("print" "+" a b) ("any" "any" "any") (azur "" "({a} + {b})"))
 (translate ("print" "-" a b) ("any" "any" "any") (azur "" "({a} - {b})"))
@@ -9,7 +14,7 @@
 (translate ("print" "and" a b) ("any" "any" "any") (azur "" "({a} && {b})"))
 (translate ("print" "if" cond a b) ("any" "any" "any") (azur "" "({cond}? {a} : {b})"))
 (translate ("print" "function" 'name' params... body) ("any" "any" "any") (azur "" "function {name} ({params (params ,)}) { return {body}; }"))
-(translate ("print" "fcall" 'name' params...) ("any" "any" "any") (azur "" "{name}({params (params ,)})"))
+(translate ("print" "fcall" 'name' params...) ("any" "any" "any") (azur "" "{name}({params params ,})"))
 
 (defun add (x y) (+ x y))
 (defun times_c (a b c) (if (= b c) a (+ a (times_c (a b (+ c 1))))))

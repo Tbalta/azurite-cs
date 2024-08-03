@@ -99,6 +99,7 @@ namespace Azurite
                 } else 
                 {
                     lastCommand = command;
+
                 }
 
                 switch (command.type)

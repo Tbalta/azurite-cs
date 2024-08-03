@@ -24,8 +24,8 @@ fi
 
 TEST_DIR=$(dirname "$0")
 test "${TEST_DIR}/test1" "azur" "$stdlib_path"
-test "${TEST_DIR}/test2" "azullvm" "$stdlib_path"
 test "${TEST_DIR}/test2" "azurir" "$stdlib_path"
+test "${TEST_DIR}/test2_bis" "azullvm" "$stdlib_path"
 test "${TEST_DIR}/test3" "azur" "$stdlib_path"
 test "${TEST_DIR}/test4" "azur" "$stdlib_path"
 test "${TEST_DIR}/test5" "azur" "$stdlib_path"

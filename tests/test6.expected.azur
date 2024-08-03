@@ -1,6 +1,6 @@
 function add (x,y) { return (x + y); }
-function times_c (a,b,c) { return ((b == c)? a : (a + times_c(a,b,(c + 1))))); }
-function sum (x) { return ((x == 1)? 1 : (x + sum((x - 1))))); }
+function times_c (a,b,c) { return ((b == c)? a : (a + times_c(a,b,(c + 1)))); }
+function sum (x) { return ((x == 1)? 1 : (x + sum((x - 1)))); }
 6
 21
 add(sum(x),6)

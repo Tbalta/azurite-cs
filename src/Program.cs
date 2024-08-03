@@ -104,13 +104,6 @@ namespace Azurite
                         else
                             to_return.Add("");
                         to_return.Add("");
-
-                        // if (current_between_parenthesis)
-                        // {
-                        //     to_return[to_return.Count - 1] += c;
-                        // }
-                        // else
-                        //     to_return.Add("");
                     }
                     else if ((c == '"') && !isEscaped)
                     {
@@ -131,18 +124,6 @@ namespace Azurite
                     }
                 }
                 return to_return;
-            }
-
-            public static bool has_parenthesis_inside(List<string> data)
-            {
-                foreach (var str in remove_first_and_last(data))
-                {
-                    if (str == ")")
-                        return true;
-                    if (str == ")") //"(" ???
-                        return true;
-                }
-                return false;
             }
 
             public static List<string> sanitize_parenthesis(List<string> data)
@@ -231,24 +212,18 @@ namespace Azurite
             }
             public SExpression(List<string> array, uint depth = 0)
             {
-                //Console.Write("{0} ] CALL WITH LIST : ", depth);
-                //print_list(array);
-                //Console.WriteLine("\n");
                 if (array.Count == 1)
                 {
-                    //Console.WriteLine("checkpoint");
                     this.data = array[0];
                     has_data = true;
                 }
                 else
                 {
-                    int count = 0;
                     has_data = false;
                     array = trim(array);
                     var head = array[0].Trim();
                     if (head != "(" && head != ")")
                     {
-                        //Console.WriteLine("checkpoint {0}", array.Count-1);
                         _first = new SExpression(head, depth + 1);
                         if (array[1] == "NULL")
                         {
@@ -259,24 +234,20 @@ namespace Azurite
                     }
                     else if (head == "(")
                     {
-                        var pos = find_matching_parenthesis(array, count);
+                        var pos = find_matching_parenthesis(array, 0);
                         _first = new SExpression(array.GetRange(1, pos - 1), depth + 1);
                         _second = new SExpression(array.GetRange(pos + 1, array.Count - pos - 1), depth + 1);
                     }
                     else
-                    { //if(head == ")")
+                    {
                         throw new Azurite.Ezception(101, " mismatched ')' found");
                     }
-                    count++;
                 }
             }
             public SExpression(string param, uint depth = 0)
             {
                 try
                 {
-                    //Console.WriteLine("{0} ]CALL WITH STRING : {1}", depth, param);
-                    //param = param.Replace("(", " ( ");
-                    //param = param.Replace(")", " ) ");
                     param = add_spaces(param);
                     List<string> array = new List<string>(tokenize(param)); //(param.Split(' '));
                     if (array[0] == "" || array[0] == " ")
@@ -285,6 +256,16 @@ namespace Azurite
                     array = remove_parenthesis(array);
                     array = trim(array);
                     array = sanitize_parenthesis(array);
+                    int parenthesis = 0;
+                    for (int i = 0; i < array.Count; i++)
+                    {
+                        if (array[i] == "(")
+                            parenthesis++;
+                        else if (array[i] == ")")
+                            parenthesis--;
+                        if (parenthesis < 0)
+                            throw new Azurite.Ezception(101, " mismatched ')' found");
+                    }
                     //array = trim(array);
                     if (array.Count == 1)
                     {
@@ -298,7 +279,6 @@ namespace Azurite
                         var head = array[0].Trim();
                         if (head != "(" && head != ")")
                         {
-                            //Console.WriteLine("checkpoint {0}", array.Count-1);
                             _first = new SExpression(head, depth + 1);
                             if (array[1] == "NULL")
                             {
@@ -306,12 +286,10 @@ namespace Azurite
                             }
                             else
                                 _second = new SExpression(array.GetRange(1, array.Count - 1), depth + 1);
-                            //_second = new SExpression(array.GetRange(1, array.Count-1), depth+1);
                         }
                         else if (head == "(")
                         {
                             var pos = find_matching_parenthesis(array, count);
-                            //Console.WriteLine(pos);
                             _first = new SExpression(array.GetRange(1, pos - 1), depth + 1);
                             _second = new SExpression(array.GetRange(pos + 1, array.Count - pos - 1), depth + 1);
                         }
@@ -324,7 +302,7 @@ namespace Azurite
                 }
                 catch (Exception)
                 {
-                    throw new Azurite.Ezception(100, "Error while parsing " + param);
+                    throw new Azurite.Ezception(103, "Error while parsing " + param);
                 }
             }
 
@@ -389,9 +367,6 @@ namespace Azurite
                     // param = add_spaces(param);
                     param = param.Trim();
                     param = insert_nulls(param);
-                    //Console.WriteLine("CALL WITH STRING : {0}", param);
-                    //param = param.Replace("(", " ( ");
-                    //param = param.Replace(")", " ) ");
                     List<string> array = new List<string>(tokenize(param)); //(param.Split(' '));
 
 
@@ -401,7 +376,20 @@ namespace Azurite
                     array = remove_parenthesis(array);
                     array = sanitize_parenthesis(array);
                     array = trim(array);
-                    //array = trim(array);
+                    int parenthesis = 0;
+                    for (int i = 0; i < array.Count; i++)
+                    {
+                        if (array[i] == "(")
+                            parenthesis++;
+                        else if (array[i] == ")")
+                            parenthesis--;
+                    }
+                    if (parenthesis < 0)
+                        throw new Azurite.Ezception(101, " missing '(' at " + param);
+                    if (parenthesis > 0)
+                        throw new Azurite.Ezception(101, " missing ')' at " + param);
+
+
                     if (array.Count == 1)
                     {
                         this.data = array[0];
@@ -414,7 +402,6 @@ namespace Azurite
                         var head = array[0].Trim();
                         if (head != "(" && head != ")")
                         {
-                            //Console.WriteLine("checkpoint {0}", array.Count-1);
                             _first = new SExpression(head);
                             if (array[1] == "NULL")
                             {
@@ -422,7 +409,6 @@ namespace Azurite
                             }
                             else
                                 _second = new SExpression(array.GetRange(1, array.Count - 1));
-                            //_second = new SExpression(array.GetRange(1, array.Count-1));
                         }
                         else if (head == "(")
                         {

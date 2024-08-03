@@ -191,19 +191,6 @@ namespace Azurite
 
         }
 
-        private static bool CheckList(List<Parser.SExpression> expr, int index, string instruc_type, string forced = null, bool args_later = false)
-        {
-
-
-            return
-            (forced != null && (instruc_type == forced)) ||
-            (!args_later && expr.Count > 1 && (instruc_type == "any" || (FormalReborn.IsEquivalent(FormalReborn.GetType(expr[index]).Last(), instruc_type)))) ||
-            ((args_later || expr.Count == 1) && (instruc_type == "any" || (expr.GetRange(index, expr.Count - index - 1).TrueForAll(elem =>
-                           FormalReborn.IsEquivalent(FormalReborn.GetType(elem) + "...", instruc_type)))));
-
-
-        }
-
         /// <summary> loop throught all translate and return the translate witch correspond to the argument list
         /// <param name="lang"> The language in wich the Instruction must be </param>
         /// <param name="arguments"> The list of arguments </param>
@@ -300,8 +287,8 @@ namespace Azurite
             //Looping through all the language defined
 
             List<string> type = expression.second().first().LoadAllData();
-            for (int i = 0; i < type.Count; i++)
-                type[i] = type[i].Replace("\"", "");
+            // for (int i = 0; i < type.Count; i++)
+            //     type[i] = type[i].Replace("\"", "");
 
             // Converting the arguments into the prototype
             Prototype proto = new Prototype();
@@ -312,14 +299,6 @@ namespace Azurite
                 string name = arguments[i].Key;
                 MATCH_LEVEL level = arguments[i].Value;
                 string arg_type = "";
-                if (level == MATCH_LEVEL.EXACT || level == MATCH_LEVEL.PARTIAL)
-                    // offset++;
-                    type.Insert(i, "");
-
-                else if (i - offset < type.Count && i - offset >= 0)
-                    arg_type = type[i - offset];
-                else
-                    throw new Azurite.Ezception(504, $"There is not enough type for the arguments {name}");
                 // Check if parameters is already present except for exact match, also check for partial match
                 if (proto.Where(val => val.Value.Key != MATCH_LEVEL.EXACT).Any(val => val.Key == name || val.Key.Contains("|" + name+ "|") || name.Contains("|" + val.Key + "|")))
                     throw new Azurite.Ezception(505, "Two parameters have the same name");
@@ -327,8 +306,8 @@ namespace Azurite
                 // Try adding and silently ignore if the key already exist
                 proto.Add(new KeyValuePair<string, KeyValuePair<MATCH_LEVEL, string>>(name, new KeyValuePair<MATCH_LEVEL, string>(level, arg_type)));
             }
-            protoList.Add(new Tuple<Prototype, string>(proto, type.Last()));
-            Lexer.add_to_globals(new Lexer.Symbol(arguments[0].Key, type));
+            protoList.Add(new Tuple<Prototype, string>(proto, "any"));
+            // Lexer.add_to_globals(new Lexer.Symbol(arguments[0].Key, new List<string>();
 
             // Loading all the language definition.
             List<Parser.SExpression> langs = expression.second().second().LoadAllChild();
@@ -385,7 +364,6 @@ namespace Azurite
             };
             
             List<string> argumentName = instruction.proto.ConvertAll(x => x.Key);
-            Parser.SExpression expression = new Parser.SExpression(text);
 
             for (int i = 0; i < argumentName.Count; i++)
             {
@@ -398,6 +376,21 @@ namespace Azurite
                 step = Debugger.step;
                 Debugger.step = Debugger.stepIn;
                 Debugger.stepIn = false;
+            }
+            
+            Parser.SExpression expression;
+            try
+            {
+                expression = new Parser.SExpression(text);
+            }
+            catch (Azurite.Ezception e)
+            {
+                Debugger.Breakpoint(text, localVariables);            
+                throw new Azurite.Ezception(501, $"Unable to parse the expression inside <eval {text}>" , text, -1, e);
+            }
+            catch (Exception)
+            {
+                throw;
             }
 
             for (int i = 0; i < argumentName.Count; i++)
@@ -443,37 +436,6 @@ namespace Azurite
             }
 
             return effect.Substring(index, i - index - 1);
-
-        }
-
-        /// <summary> Search for strict match level with polymorphe type, try to type them and add it to the lexer
-        /// <param name="expression"> The list of arguments of the instruction.</param>
-        /// <param name="instruction"> The instruction containing the match level of the parameters.</param>
-        /// </summary>
-        private static void addCustomToLexer(List<Parser.SExpression> expression, Instruction instruction)
-        {
-
-            // if the instrsuction contains a strict match
-            int index = 0;
-            while (index < instruction.proto.Count &&
-                instruction.proto.ElementAt(index).Value.Key != MATCH_LEVEL.STRICT &&
-                !Formal.is_polymorphic(instruction.proto.ElementAt(index).Value.Value))
-                index++;
-
-            // if we index is greater then there is no MATCH level strict with type polymorph
-            if (index == instruction.proto.Count)
-                return;
-
-            var item = instruction.proto.ElementAt(index);
-
-            for (int i = 0; i < instruction.proto.Count; i++)
-            {
-                if (i != index && instruction.proto.ElementAt(i).Value.Value == item.Value.Value)
-                {
-                    List<string> type = FormalReborn.GetType(expression[i]);
-                    Lexer.add_to_globals(new Lexer.Symbol(expression[index].data, type));
-                }
-            }
 
         }
 
@@ -556,15 +518,15 @@ namespace Azurite
                 List<string> expresionType = new List<string>();
                 if (effect.Contains("$" + instruction.proto.ElementAt(i).Key + "$"))
                 {
-                    expresionType = FormalReborn.GetType(arguments[i]);
+                    // expresionType = FormalReborn.GetType(arguments[i]);
                     effect = effect.Replace("$" + instruction.proto.ElementAt(i).Key + "$",
                     Transpiler.Convert($"({expresionType[expresionType.Count - 1]})", language));
                     // Convert name so user can use custom name for the type
                 }
                 if (effect.Contains("^" + instruction.proto.ElementAt(i).Key + "^"))
                 {
-                    if (expresionType.Count == 0)
-                        expresionType = FormalReborn.GetType(arguments[i]);
+                    /* if (expresionType.Count == 0)
+                        expresionType = FormalReborn.GetType(arguments[i]);*/
                     effect = effect.Replace("^" + instruction.proto.ElementAt(i).Key + "^",
                     String.Join(" ", expresionType.Select(type => Transpiler.Convert($"({type})", language))));
                 }
@@ -593,7 +555,7 @@ namespace Azurite
                         if (symbo == null)
                             throw new Azurite.Ezception(503, "call to function before definition");
                         forced_type = symbo.type;
-                        FormalReborn.GetType(expression);
+                        // FormalReborn.GetType(expression);
                         effect = effect.Replace($"@{instruction.proto.ElementAt(i).Key}@", (Lexer.GetSymbol(arguments[i].data).type.Count - 1).ToString());
                         goto case MATCH_LEVEL.STRICT;
                     case MATCH_LEVEL.STRICT:
@@ -631,7 +593,7 @@ namespace Azurite
 
                         List<Parser.SExpression> args = new List<Parser.SExpression>();
 
-                        if (type != null && FormalReborn.GetType(arguments[i])[0] == type)
+                        if (type != null)
                         {
                             args.Add(arguments[i]);
                             if (arguments.Count > forced_type.Count)

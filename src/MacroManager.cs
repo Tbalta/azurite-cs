@@ -69,7 +69,7 @@ namespace Azurite
         public static Parser.SExpression Execute(Parser.SExpression expression, int index = 0)
         {
             bool modif = false;
-            Parser.SExpression temp = Execute(Azurite.DEBUG ? expression.Clone() : expression, ref modif, index);
+            Parser.SExpression temp = Execute(expression.Clone(), ref modif, index);
             // if(Azurite.DEBUG)
             //     Azurite.debug_list.Insert(0,expression.Stringify() + "-->" + temp.Stringify());
             return temp;
@@ -93,6 +93,17 @@ namespace Azurite
             modification = true;
 
             Parser.SExpression effect = macro_list[index].body.Clone();
+
+            if (Azurite.debugger)
+            {
+                if (Debugger.ShouldBreak(expression.Stringify()) || Debugger.step)
+                {
+                    Dictionary<string, string> variables = new Dictionary<string, string> { { "instruction", expression.Stringify() }, { "effect", effect.Stringify() } };
+                    proto.ToList().ForEach(x => variables.Add("$"+x.Key, x.Value.Stringify()));
+                    Debugger.Breakpoint(expression.Stringify(), variables);
+                }
+            }
+
             if (Azurite.DEBUG)
             {
 

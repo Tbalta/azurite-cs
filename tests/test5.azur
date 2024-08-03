@@ -11,47 +11,6 @@
 (translate ("print" "function" 'name' params... body) ("any" "any" "any") (azur "" "function {name} ({params (params ,)}) { return {body}; }"))
 (translate ("print" "fcall" 'name' params...) ("any" "any" "any") (azur "" "{name}({params (params ,)})"))
 
-(macro ("is_pure" context ("+" a b)) (is_pure context + a b))
-(translate ("is_pure" 'curr_context' "+" a b) ("any" "any" "any") (azur "" "<eval (eval and (is_pure {curr_context} [a]) (is_pure {curr_context} [b]))>"))
-(translate ("is_pure" 'curr_context' 'a') ("any" "any" "any") (azur "" "<eval (eval or (is_number {a}) (is_var {curr_context} {a}))>"))
-
-
-(macro ("first" callme (head rest...))(callme head rest))
-(macro ("first" callme (head)) (callme head))
-
-
-(translate ("all" element list) ("any" "any") (azur "" "<eval (eval and (can_eval [element]) (first all [list]))>"))
-(translate ("all" element) ("any" "any") (azur "" "<eval (can_eval [element])>"))
-
-
-(macro ("defun" 'name' params body)(
-    (print function name params body)
-    (unroll_var @name@ params)
-    (macro ("apply_fun" "@name@" params) body)
-    (macro ("body" "@name@") body)
-    (translate ("is_pure" "@name@") ("any") (azur "" "<eval (is_pure @name@ @body@)>"))
-    (translate ("is_var" "@name@" 'a') ("any") (azur "" "false"))
-    (translate ("@name@" args) ("any" "any" "any") (azur "" "<eval (try_eval fcall (can_eval @name@ [args]) @name@ [args]) >"))
-    (translate ("can_eval" "@name@" args) ("any" "any" "any") (azur "" "<eval (eval and (is_pure @name@) (first all [args]))>"))
-    (macro ("can_eval" ("@name@" args)) (can_eval name args))
-    (translate ("eval" "@name@" args...)  ("any" "any" "any") (azur "" "<eval (apply_fun @name@ ({args args \x20}))>"))
-))
-
-(macro ("unroll_var" 'name' (params rest...)) (
-    (translate ("is_var" "@name@" "@params@") ("any") (azur "" "true"))
-    (unroll_var name rest)
-))
-
-(macro ("unroll_var" 'name' (params)) (
-    (translate ("is_var" "@name@" "@params@") ("any") (azur "" "true"))
-))
-
-
-(translate ("try_eval" "fcall" "true" fname args) ("any" "any" "any") (azur "" "<eval (eval {fname} [args])>"))
-(translate ("try_eval" "fcall" "false" fname args) ("any" "any" "any") (azur "" "<eval (print fcall {fname} [args])>"))
-(translate ("try_eval" "fcall" is_pure fname args) ("any" "any" "any") (azur "" "<eval (try_eval fcall {is_pure} {fname} [args])>"))
-
-
 
 (defun add (x y) (+ x y))
 (defun double (x) (+ x x))

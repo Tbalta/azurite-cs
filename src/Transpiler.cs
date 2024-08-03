@@ -49,7 +49,7 @@ namespace Azurite
         }
         public static string Convert(string input, string language, string type = null)
         {
-            return Transpiler.Convert(new Parser.SExpression(input), language, type);
+            return Convert(new Parser.SExpression(input), language, type);
         }
 
         public static void ResetTracking()
