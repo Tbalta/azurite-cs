@@ -13,6 +13,8 @@ namespace Azurite
         
         public static string stdlib = "";
 
+        public static bool debugger = false;
+
         /// <summary>
         /// Language currently imported inside Azurite.
         /// </summary>
@@ -110,11 +112,14 @@ namespace Azurite
             expressions_list.Clear();
         }
 
+        static HashSet<string> loaded_files = new HashSet<string>();
         public static void Load(string path, string filename = "")
         {
             if (!File.Exists(path))
                 throw new Ezception(010, $"Cannot find {path}");
-
+            if (loaded_files.Contains(path))
+                return;
+            loaded_files.Add(path);
             string[] fileContent = File.ReadAllLines(path);
             Load(fileContent, filename);
             Console.WriteLine("successfully loaded: " + path + " in the current Azurite runtime");
@@ -135,7 +140,7 @@ namespace Azurite
                 string newLine = "";
                 do
                 {
-                    string line = fileContent[index]/*.Replace("(", " ( ").Replace(")", " ) ")*/;
+                    string line = fileContent[index];
                     newLine += line;
 
                     index++;
@@ -261,9 +266,9 @@ namespace Azurite
                 if (path[0] == '.')
                     Load(path + ".azur", (data.Count > 2) ? data[2] : "");
                 else if (path[0] == '~' && path[1] == '/')
-                    Load(Azurite.stdlib + "/" + path.Substring(2) + ".azur", (data.Count > 2) ? data[2] : "");
+                    Load(stdlib + "/" + path.Substring(2) + ".azur", (data.Count > 2) ? data[2] : "");
                 else
-                    Load(Azurite.stdlib + "/" + path + ".azur", (data.Count > 2) ? data[2] : "");
+                    Load(stdlib + "/" + path + ".azur", (data.Count > 2) ? data[2] : "");
                 return true;
             }
 

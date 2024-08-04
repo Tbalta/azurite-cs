@@ -1,3 +1,3 @@
-(import "targets/azurir")
+(import "targets/azullvm")
 (defun facto (n) (if (< n 2) 1 (* n (facto ((- n 1))))))
 (main ((facto (6))))
