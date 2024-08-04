@@ -292,7 +292,6 @@ namespace Azurite
 
             // Converting the arguments into the prototype
             Prototype proto = new Prototype();
-            int offset = 0;
 
             for (int i = 0; i < arguments.Count; i++)
             {
@@ -349,33 +348,24 @@ namespace Azurite
         private static bool Eval(ref string effect, Instruction instruction, Parser.SExpression p_expression, string language)
         {
             string text = GetEvalText(effect);
-            bool step = false;
+
             List<Parser.SExpression> arguments = p_expression.LoadAllChild();
-
-            
-
             if (text == "")
                 return false;
-            var localVariables = new Dictionary<string, string>
-            {
-                { "effect", effect.Replace(text, $"\x1b[31m{text}\x1b[0m") },
-                { "callstack", string.Join(" -> ", Transpiler.numberNames.Reverse()) },
-                { "instruction", instruction.ToString() }
-            };
+
+            Debugger debugger = Debugger.stack.Peek();
+            debugger.variables["effect"] = effect.Replace(text, $"\x1b[31m{text}\x1b[0m");
             
             List<string> argumentName = instruction.proto.ConvertAll(x => x.Key);
 
             for (int i = 0; i < argumentName.Count; i++)
             {
-                localVariables.TryAdd("$"+argumentName[i], arguments[i].Stringify());
+                debugger.variables.TryAdd("$"+argumentName[i], arguments[i].Stringify());
             }
 
-            if (Azurite.debugger && Debugger.step)
+            if (Azurite.debugger && debugger.ShouldBreak())
             {
-                Debugger.Breakpoint(p_expression.Stringify(), localVariables);
-                step = Debugger.step;
-                Debugger.step = Debugger.stepIn;
-                Debugger.stepIn = false;
+                debugger.Breakpoint();
             }
             
             Parser.SExpression expression;
@@ -385,13 +375,15 @@ namespace Azurite
             }
             catch (Azurite.Ezception e)
             {
-                Debugger.Breakpoint(text, localVariables);            
+                debugger.Breakpoint();            
                 throw new Azurite.Ezception(501, $"Unable to parse the expression inside <eval {text}>" , text, -1, e);
             }
+            #if !DEBUG
             catch (Exception)
             {
                 throw;
             }
+            #endif
 
             for (int i = 0; i < argumentName.Count; i++)
             {
@@ -404,13 +396,17 @@ namespace Azurite
             }
             catch (Azurite.Ezception e)
             {
+                Debugger.stack.Pop();
                 throw new Azurite.Ezception(501, $"{instruction}: Unable to evaluate the expression inside the eval", expression.Stringify(), -1, e);
             }
+            #if !DEBUG
             catch (Exception e)
             {
+                Debugger.stack.Pop();
                 throw new Azurite.Ezception(501, $"Unexpected error while parsing {expression.Stringify()} inside <eval {text}>, associated error message: {e.Message}");
             }
-            Debugger.step = step;
+            #endif
+            // Debugger.stack.Pop(); Pop is done in higher level
             return true;
         }
         private static string GetEvalText(string effect)
@@ -468,6 +464,7 @@ namespace Azurite
             string effect = instruction.effect;
 
             int size = instruction.proto.Count;
+            Debugger debugger = Debugger.create(expression.Stringify());
             // Replace global variable
 
             effect.Replace($"{{{Langconfig.libpath}}}", Azurite.stdlib);
@@ -475,39 +472,25 @@ namespace Azurite
             var localVariables = new Dictionary<string, string>();
             for (int i = 0; i < ArgumentName.Count; i++)
             {
-                localVariables.TryAdd("$"+ArgumentName[i], arguments[i].Stringify());
+                debugger.variables.TryAdd("$"+ArgumentName[i], arguments[i].Stringify());
             }
-            localVariables.Add("effect", effect);
-            localVariables.Add("callstack", string.Join(" -> ", Transpiler.numberNames.Reverse()));
-            localVariables.Add("instruction", instruction.ToString());
-            localVariables.Add("originalEffect", language);
+            debugger.variables.Add("effect", effect);
+            debugger.variables.Add("callstack", string.Join(" -> ", Transpiler.numberNames.Reverse()));
+            debugger.variables.Add("instruction", instruction.ToString());
+            debugger.variables.Add("originalEffect", language);
 
             bool debuggerWillBreak = ArgumentName.Any(x => effect.Contains($"{{{x}}}")) || effect.Contains("<eval ");
-            bool step = false;
-            bool stopInEval = false;
             
-            if (Azurite.debugger && Debugger.ShouldBreak(expression.Stringify()) || Debugger.step)
+            if (Azurite.debugger && debugger.ShouldBreak())
             {
                 if (!debuggerWillBreak)
                 {
-                    Debugger.Breakpoint(expression.Stringify(), localVariables);
-                    step = Debugger.step;
-                    Debugger.step = Debugger.stepIn;
-                    Debugger.stepIn = false;
-                } else 
-                {
-                    stopInEval = true;
+                    debugger.Breakpoint();
                 }
             }
 
-
-
-            int offset = 0;
-
             for (int i = 0; i < size; i++)
             {
-                // If "step" need to be restored
-                bool restore = false;
 
                 if (i < forced_type.Count)
                     type = forced_type[i - 1];
@@ -533,29 +516,22 @@ namespace Azurite
 
                 if (Azurite.debugger && effect.Contains($"{{{instruction.proto.ElementAt(i).Key}}}"))
                 {
-                    if (Debugger.ShouldBreak(expression.Stringify()) || Debugger.step)
+                    if (debugger.ShouldBreak())
                     {
-                        step = false;
-                        localVariables["effect"] = effect.Replace($"{{{instruction.proto.ElementAt(i).Key}}}", $"\x1b[31m{{{instruction.proto.ElementAt(i).Key}}}\x1b[0m");
-                        Debugger.Breakpoint(expression.Stringify(), localVariables);
-                        step = Debugger.step;
-                        Debugger.step = Debugger.stepIn;
-                        Debugger.stepIn = false;
-                        restore = true;
+                        debugger.variables["effect"] = effect.Replace($"{{{instruction.proto.ElementAt(i).Key}}}", $"\x1b[31m{{{instruction.proto.ElementAt(i).Key}}}\x1b[0m");
+                        debugger.Breakpoint();
                     }
                 }
 
                 switch (instruction.proto.ElementAt(i).Value.Key)
                 {
                     case MATCH_LEVEL.EXACT:
-                        offset++;
                         break;
                     case MATCH_LEVEL.CALLABLE:
                         Lexer.Symbol symbo = Lexer.GetSymbol(arguments[i].data);
                         if (symbo == null)
                             throw new Azurite.Ezception(503, "call to function before definition");
                         forced_type = symbo.type;
-                        // FormalReborn.GetType(expression);
                         effect = effect.Replace($"@{instruction.proto.ElementAt(i).Key}@", (Lexer.GetSymbol(arguments[i].data).type.Count - 1).ToString());
                         goto case MATCH_LEVEL.STRICT;
                     case MATCH_LEVEL.STRICT:
@@ -655,11 +631,6 @@ namespace Azurite
                         break;
                 }
                 
-                if (restore)
-                {
-                    Debugger.step = step;
-                }
-
             }
 
             // If the translate contain an import then add it to the import list.
@@ -669,10 +640,15 @@ namespace Azurite
             }
 
             int TOUR = 0;
-            Debugger.step = Debugger.step || stopInEval;
             while (effect != null && TOUR < MainClass.MAX_RECURSION_ALLOWED && Eval(ref effect, instruction, expression, language))
                 TOUR++;
             Transpiler.numberNames.Pop();
+            if (debugger.ShouldBreak())
+            {
+                debugger.variables["effect"] = effect;
+                debugger.Breakpoint();
+            }
+            Debugger.remove();
             return effect;
 
         }

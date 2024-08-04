@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Azurite
@@ -14,6 +15,8 @@ namespace Azurite
             BREAK,
             PRINT,
             REMOVE,
+            UP,
+            DOWN,
             EMPTY,
             INVALID,
         }
@@ -25,9 +28,27 @@ namespace Azurite
             public string argument;
         }
 
-        public static bool stepIn = false;
-        public static bool step = false;
-        private static Command lastCommand = new Command { type = COMMANDS_TYPE.EMPTY, argument = "" };
+
+
+        public static Stack<Debugger> stack = new Stack<Debugger>();
+        public static HashSet<string> Breakpoints = new HashSet<string>();
+
+
+
+        public static Debugger create(string breakpoint)
+        {
+            stack.Push(new Debugger(breakpoint, stack.Count));
+            return stack.Peek();
+        }
+
+        public static void remove()
+        {
+            if (Azurite.debugger)
+            {
+                Debug.Assert(stack.Count > 0, "No debugger to remove");
+                stack.Pop();
+            }
+        }
 
         private static Command ParseCommand(string entry)
         {
@@ -45,6 +66,10 @@ namespace Azurite
                 {"remove", COMMANDS_TYPE.REMOVE},
                 {"rm", COMMANDS_TYPE.REMOVE},
                 {"si", COMMANDS_TYPE.STEPIN},
+                {"up", COMMANDS_TYPE.UP},
+                {"u", COMMANDS_TYPE.UP},
+                {"down", COMMANDS_TYPE.DOWN},
+                {"d", COMMANDS_TYPE.DOWN},
                 {"", COMMANDS_TYPE.EMPTY}
             };
             entry = entry.Trim();
@@ -59,8 +84,22 @@ namespace Azurite
 
         }
 
+        private int level;
 
-        public static HashSet<string> Breakpoints = new HashSet<string>();
+        public bool stepIn = false;
+        public bool step = false;
+        private static Command lastCommand = new Command { type = COMMANDS_TYPE.EMPTY, argument = "" };
+        public Dictionary<string, string> variables;
+
+        private string breakpoint;
+
+        public Debugger(string breakpoint, int level = 0)
+        {
+            this.breakpoint = breakpoint;
+            this.level = level;
+            this.variables = new Dictionary<string, string>();
+        }
+
 
         public static void AddBreakpoint(string breakpoint)
         {
@@ -72,23 +111,50 @@ namespace Azurite
             Breakpoints.Remove(breakpoint);
         }
 
-        public static bool ShouldBreak(string breakpoint)
+        public bool ShouldBreak()
         {
-            return Breakpoints.Contains(breakpoint);
+            if (level > 0)
+            {
+                return stack.ElementAt(stack.Count - level).stepIn || step || Breakpoints.Contains(breakpoint);
+            }
+            return step || Breakpoints.Contains(breakpoint);
         }
 
-        public static void Breakpoint(string breakpoint, Dictionary<string, string> variables)
+        public void PrintMenu()
         {
-            System.Console.Clear();
+            try
+            {
+                System.Console.Clear();
+            }
+            catch (System.Exception)
+            {
+                // ignore
+            }
+
+            if (level > 0)
+            {
+                System.Console.WriteLine("StepIn: " + stepIn);
+            }
             if (variables.ContainsKey("instruction") && variables.ContainsKey("effect"))
             {
                 System.Console.WriteLine("Breakpoint hit: " + variables["instruction"]);
                 System.Console.WriteLine(breakpoint + "->" + variables["effect"]);
-            } else 
+            }
+            else
             {
                 System.Console.WriteLine("Breakpoint hit: " + breakpoint);
             }
 
+        }
+
+        public void Breakpoint()
+        {
+            if (level > 1)
+            {
+                stack.ElementAt(stack.Count - level).stepIn = false;
+            }
+
+            PrintMenu();
             while (true)
             {
                 var entry = System.Console.ReadLine();
@@ -96,12 +162,12 @@ namespace Azurite
                 if (command.type == COMMANDS_TYPE.EMPTY)
                 {
                     command = lastCommand;
-                } else 
+                }
+                else
                 {
                     lastCommand = command;
 
                 }
-
                 switch (command.type)
                 {
                     case COMMANDS_TYPE.STEP:
@@ -109,6 +175,7 @@ namespace Azurite
                         return;
                     case COMMANDS_TYPE.STEPIN:
                         stepIn = true;
+                        step = true;
                         return;
                     case COMMANDS_TYPE.PRINT:
                         if (variables.ContainsKey(command.argument))
@@ -121,6 +188,11 @@ namespace Azurite
                         }
                         break;
                     case COMMANDS_TYPE.CONTINUE:
+                        for (int i = 0; i < stack.Count; i++)
+                        {
+                            stack.ElementAt(i).step = false;
+                            stack.ElementAt(i).stepIn = false;
+                        }
                         return;
                     case COMMANDS_TYPE.REMOVE:
                         RemoveBreakpoint((command.argument != "") ? command.argument : breakpoint);
@@ -130,6 +202,27 @@ namespace Azurite
                         break;
                     case COMMANDS_TYPE.BREAK:
                         AddBreakpoint(command.argument);
+                        break;
+                    case COMMANDS_TYPE.UP:
+                        if (level <= 0)
+                        {
+                            System.Console.WriteLine("Already at the top level");
+                        }
+                        else
+                        {
+                            stack.ElementAt(stack.Count - level).Breakpoint();
+                            PrintMenu();
+                        }
+                        break;
+                    case COMMANDS_TYPE.DOWN:
+                        if (level == stack.Count - 1)
+                        {
+                            System.Console.WriteLine("Already at the bottom level");
+                        }
+                        else
+                        {
+                            return;
+                        }
                         break;
                 }
             }

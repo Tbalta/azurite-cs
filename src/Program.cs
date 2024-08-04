@@ -824,15 +824,17 @@ namespace Azurite
             if (!Langconfig.is_loaded)
                 Langconfig.load();
 
+
+            if (Azurite.debugger)
+            {
+                var debugger = Debugger.create("main");
+                debugger.Breakpoint();
+            }
+
             foreach (string file in inputFiles)
             {
                 Azurite.Load(file);
                 Azurite.Compile();
-            }
-
-            if (Azurite.debugger)
-            {
-                Debugger.Breakpoint("main", new Dictionary<string, string>());
             }
 
             foreach (string lang in languages)

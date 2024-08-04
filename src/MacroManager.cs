@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Azurite
@@ -93,16 +94,9 @@ namespace Azurite
             modification = true;
 
             Parser.SExpression effect = macro_list[index].body.Clone();
-
-            if (Azurite.debugger)
-            {
-                if (Debugger.ShouldBreak(expression.Stringify()) || Debugger.step)
-                {
-                    Dictionary<string, string> variables = new Dictionary<string, string> { { "instruction", expression.Stringify() }, { "effect", effect.Stringify() } };
-                    proto.ToList().ForEach(x => variables.Add("$"+x.Key, x.Value.Stringify()));
-                    Debugger.Breakpoint(expression.Stringify(), variables);
-                }
-            }
+            Debugger debugger = Debugger.create(expression.Stringify());
+            debugger.variables.Add("effect", effect.Stringify());
+            debugger.variables["instruction"] = expression.Stringify();
 
             if (Azurite.DEBUG)
             {
@@ -115,6 +109,17 @@ namespace Azurite
 
             foreach (KeyValuePair<string, Parser.SExpression> argument in proto)
             {
+                if (Azurite.debugger)
+                {
+                    if (debugger.ShouldBreak() && (effect.Stringify().Contains(" " + argument.Key + " ") || effect.Stringify().Contains("@" + argument.Key + "@")))
+                    {
+                        debugger.variables["effect"] = effect.Stringify()
+                            .Replace($" {argument.Key} ", $" \x1b[31m{argument.Key}\x1b[0m ")
+                            .Replace($"@{argument.Key}@", $" \x1b[31m@{argument.Key}@\x1b[0m ");
+                        debugger.Breakpoint();
+                    }
+                }
+
                 effect.Map(expr => (expr.data == argument.Key) ?
                     (!argument.Value.has_data && (argument.Value.first() == null || argument.Value.second() == null)
                      ? argument.Value.first() : argument.Value) : expr);
@@ -125,12 +130,26 @@ namespace Azurite
 
             }
 
-            //effect = Tools.reinsert_nulls(effect);
-            //effect.PrettyPrint();
             if (Azurite.DEBUG)
                 Azurite.debug_list[Azurite.debug_list.Count - 1] += effect.Stringify();
-
-            return Execute(effect, 0);
+            
+            if (Azurite.debugger)
+            {
+                if (debugger.ShouldBreak())
+                {
+                    debugger.variables["effect"] = $"\x1b[31m{effect.Stringify()}\x1b[0m";
+                    debugger.Breakpoint();
+                }
+            }
+            
+            var result = Execute(effect, 0);
+            if (Azurite.debugger)
+            {
+                bool stepIn = debugger.stepIn;
+                Debugger.remove();
+                Debugger.stack.Peek().stepIn = debugger.stepIn;
+            }
+            return result;
         }
 
         private static Parser.SExpression Replace(Parser.SExpression expression, string target, Parser.SExpression replacement)

@@ -1,5 +1,8 @@
 
 
+debug:
+	dotnet publish ./src -o /bin -c Debug
+
 build:
 	dotnet publish ./src -o ./bin
 
