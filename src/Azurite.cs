@@ -217,48 +217,46 @@ namespace Azurite
         {
             // expression.arbre = MacroApply(expression.arbre);
             Parser.SExpression arbre = expression.arbre;
-
-            // arbre = InterpolateString(arbre, );
+            List<Parser.SExpression> children = arbre.LoadAllChild();
 
             if (arbre.has_data && arbre.data == "NULL")
                 return true;
-            if (arbre.first() == null)
+            if (children.Count == 0)
                 return false;
 
-            if (arbre.first().data == Langconfig.macro_name)
+            if (children[0].data == Langconfig.macro_name)
             {
                 MacroManager.LoadMacro(arbre, filename);
                 return true;
             }
 
-            if (arbre.first().data == Langconfig.variables)
+            if (children[0].data == Langconfig.variables)
             {
-                List<Parser.SExpression> child = arbre.LoadAllChild();
                 if (Langconfig.compilation == "1")
-                    EnvironmentManager.LoadVar(child[1].data, child[2]);
+                    EnvironmentManager.LoadVar(children[1].data, children[2]);
                 return false;
             }
 
-            if (arbre.first().data == Langconfig.translate_name)
+            if (children[0].data == Langconfig.translate_name)
             {
-                Directive.LoadInstruction(arbre.second(), filename);
+                Directive.LoadInstruction(arbre, filename);
                 if (Azurite.DEBUG)
                     debug_list.Add(arbre.Stringify());
                 return true;
             }
 
-            if (arbre.first().data == Langconfig.function_name && arbre.first() != null)
+            if (children[0].data == Langconfig.function_name && children[0] != null)
             {
-                Directive.known_token.Add(arbre.second().first().data);
+                Directive.known_token.Add(children[1].data);
                 expressions_list.Add(expression);
                 if (Langconfig.compilation == "1")
-                    EnvironmentManager.LoadFunc(arbre.second());
+                    EnvironmentManager.LoadFunc(arbre);
 
                 return true;
             }
 
 
-            if (arbre.first().data == Langconfig.import_name)
+            if (children[0].data == Langconfig.import_name)
             {
                 List<string> data = arbre.LoadAllData();
                 string path = data[1];

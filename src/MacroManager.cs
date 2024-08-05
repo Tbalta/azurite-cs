@@ -77,15 +77,12 @@ namespace Azurite
         }
         public static Parser.SExpression Execute(Parser.SExpression expression, ref bool modification, int index = 0)
         {
+            for (int i = 0; i < expression.childs.Count; i++)
+            {
+                expression.childs[i] = Execute(expression.childs[i], ref modification, index);
+            }
 
-            if (expression.first() != null)
-                expression.first(Execute(expression.first(), ref modification, 0));
-            if (expression.second() != null)
-                expression.second(Execute(expression.second(), ref modification, 0));
-            // index = 0;
             Dictionary<string, Parser.SExpression> proto = FindMacro(expression, ref index);
-
-
 
             if (proto == null)
             {
@@ -120,19 +117,37 @@ namespace Azurite
                     }
                 }
 
-                effect.Map(expr => (expr.data == argument.Key) ?
-                    (!argument.Value.has_data && (argument.Value.first() == null || argument.Value.second() == null)
-                     ? argument.Value.first() : argument.Value) : expr);
+                effect.Map(expr =>
+                {
+                    if (expr.data != argument.Key)
+                        return expr;
+                    return argument.Value;
+                });
+
                 if (argument.Value.data != null)
-                    effect.MapData(expr => expr.data.Replace("@" + argument.Key + "@", argument.Value.data.Trim('\"')).Replace("\\\"", "\""));
+                {
+                    effect.MapData(expr =>
+                    {
+                        if (expr.data == null)
+                            return expr.data;
+                        return expr.data.Replace("@" + argument.Key + "@", argument.Value.data.Trim('\"')).Replace("\\\"", "\"");
+                    });
+                }
                 else
-                    effect.MapData(expr => expr.data.Replace("@" + argument.Key + "@", argument.Value.Stringify()));
+                {
+                    effect.MapData(expr =>
+                    {
+                        if (expr.data == null)
+                            return expr.data;
+                        return expr.data.Replace("@" + argument.Key + "@", argument.Value.Stringify());
+                    });
+                }
 
             }
 
             if (Azurite.DEBUG)
                 Azurite.debug_list[Azurite.debug_list.Count - 1] += effect.Stringify();
-            
+
             if (Azurite.debugger)
             {
                 if (debugger.ShouldBreak())
@@ -141,7 +156,7 @@ namespace Azurite
                     debugger.Breakpoint();
                 }
             }
-            
+
             var result = Execute(effect, 0);
             if (Azurite.debugger)
             {
@@ -152,27 +167,6 @@ namespace Azurite
             return result;
         }
 
-        private static Parser.SExpression Replace(Parser.SExpression expression, string target, Parser.SExpression replacement)
-        {
-            /*
-                Replace build a new SExpression based on an existing SExpression
-                if the data of the current expression is equal to the target
-                 then this expression is replaced by another expression
-            */
-            if (expression == null)
-                return null;
-
-            if (expression.data == target)
-                return replacement;
-
-            if (expression.first() != null)
-                expression.first(Replace(expression.first(), target, replacement));
-
-            if (expression.second() != null)
-                expression.second(Replace(expression.second(), target, replacement));
-
-            return expression;
-        }
         /// <summary>
         /// Search the corresponding macro body of an expression. 
         /// </summary>

@@ -259,19 +259,12 @@ namespace Azurite
         /// </summary>
         private static bool EnsureTranslateIntegrity(Parser.SExpression expression)
         {
-            List<Parser.SExpression> childs = expression.LoadAllChild();
-            if (childs.Count < 2)
+            List<Parser.SExpression> children = expression.LoadAllChild();
+            if (children.Count < 3)
                 return false;
-            if (!childs[0].LoadAllData().TrueForAll(x => !(x is null)))
-                return false;
-            if (!childs[1].LoadAllData().TrueForAll(x => !(x is null)))
-                return false;
-            int i = 2;
-            for (; i < childs.Count && childs[i].LoadAllData().TrueForAll(x => !(x is null)); i++) ;
-            if (i != childs.Count)
-                return false;
-            return true;
 
+            // skip "translate"
+            return children.Skip(1).All(x => x.LoadAllData().TrueForAll(y => y != null));
         }
         /// <summary> Load Intruction Convert an SExpression into a Instruction and add it to the list of instruction
         /// <param name="expression"> the SExpression to load in.</param>
@@ -281,17 +274,18 @@ namespace Azurite
         {
             if (!EnsureTranslateIntegrity(expression))
                 throw new Azurite.Ezception(504, "Translate integrity check failed");
-            // Expression is the right brother of translate
-            List<KeyValuePair<string, MATCH_LEVEL>> arguments = Evaluate(expression.first(), filename);
+            
+            List<Parser.SExpression> children = expression.LoadAllChild();
+            Debug.Assert(children.Count >= 3);
 
-            //Looping through all the language defined
+            // (translate[0] (args[1]) (type[2]))
+            List<KeyValuePair<string, MATCH_LEVEL>> arguments = Evaluate(children[1], filename);
 
-            List<string> type = expression.second().first().LoadAllData();
-            // for (int i = 0; i < type.Count; i++)
-            //     type[i] = type[i].Replace("\"", "");
+            List<string> type = children[1].LoadAllData();
 
             // Converting the arguments into the prototype
             Prototype proto = new Prototype();
+
 
             for (int i = 0; i < arguments.Count; i++)
             {
@@ -302,14 +296,12 @@ namespace Azurite
                 if (proto.Where(val => val.Value.Key != MATCH_LEVEL.EXACT).Any(val => val.Key == name || val.Key.Contains("|" + name+ "|") || name.Contains("|" + val.Key + "|")))
                     throw new Azurite.Ezception(505, "Two parameters have the same name");
                 
-                // Try adding and silently ignore if the key already exist
                 proto.Add(new KeyValuePair<string, KeyValuePair<MATCH_LEVEL, string>>(name, new KeyValuePair<MATCH_LEVEL, string>(level, arg_type)));
             }
             protoList.Add(new Tuple<Prototype, string>(proto, "any"));
-            // Lexer.add_to_globals(new Lexer.Symbol(arguments[0].Key, new List<string>();
 
             // Loading all the language definition.
-            List<Parser.SExpression> langs = expression.second().second().LoadAllChild();
+            IEnumerable<Parser.SExpression> langs = children.Skip(3);
 
             foreach (Parser.SExpression lang in langs)
             {

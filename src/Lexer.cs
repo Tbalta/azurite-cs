@@ -227,21 +227,6 @@ namespace Azurite
             last.ForEach(x => add_to_layer(layer, x));
         }
 
-        public static bool check_SExpression(Parser.SExpression to_check)
-        {
-            if (to_check.has_data)
-            {
-                string data = to_check.data;
-                bool b = check_name(ref data);
-                to_check.data = data;
-                return b;
-            }
-            else
-            {
-                return check_SExpression(to_check.first()) && check_SExpression(to_check.second());
-            }
-        }
-
     }
 
 }

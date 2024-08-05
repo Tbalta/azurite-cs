@@ -6,6 +6,7 @@ namespace Azurite
 {
     public class Debugger
     {
+        public static bool no_menu = true;
 
         private enum COMMANDS_TYPE
         {
@@ -52,7 +53,11 @@ namespace Azurite
 
         private static Command ParseCommand(string entry)
         {
-            // parse command like "break (+ 5 2)"
+            if (entry == null)
+            {
+                return new Command { type = COMMANDS_TYPE.INVALID, argument = "NULL_COMMAND" };
+            }
+
             Dictionary<string, COMMANDS_TYPE> commands = new Dictionary<string, COMMANDS_TYPE>
             {
                 {"continue", COMMANDS_TYPE.CONTINUE},
@@ -104,6 +109,7 @@ namespace Azurite
         public static void AddBreakpoint(string breakpoint)
         {
             Breakpoints.Add(breakpoint);
+            System.Console.WriteLine("Breakpoint added: " + breakpoint);
         }
 
         public static void RemoveBreakpoint(string breakpoint)
@@ -122,6 +128,12 @@ namespace Azurite
 
         public void PrintMenu()
         {
+            if (no_menu)
+            {
+                System.Console.WriteLine("stopped");
+                return;
+            }
+
             try
             {
                 System.Console.Clear();
@@ -198,7 +210,7 @@ namespace Azurite
                         RemoveBreakpoint((command.argument != "") ? command.argument : breakpoint);
                         break;
                     case COMMANDS_TYPE.INVALID:
-                        System.Console.WriteLine("Invalid command");
+                        System.Console.WriteLine("Invalid command" + entry);
                         break;
                     case COMMANDS_TYPE.BREAK:
                         AddBreakpoint(command.argument);
