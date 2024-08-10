@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace Azurite
@@ -13,39 +14,38 @@ namespace Azurite
             is_loaded = true;
 
             var sexpr = new Parser.SExpression(System.IO.File.ReadAllText(filepath));
-            for (; !sexpr.has_data; sexpr = sexpr.second())
+            List<Parser.SExpression> sexprs = sexpr.LoadAllChild();
+            foreach (Parser.SExpression expr in sexprs)
             {
-                if (sexpr.first().has_data)
-                    throw new Exception("ERROR on parsing config files. Please check syntax.");
-
-                switch (sexpr.first().first().data)
+                List<string> data = expr.LoadAllData();
+                switch (data[0])
                 {
                     case "functions":
-                        function_name = sexpr.first().second().first().data;
+                        function_name = data[1];
                         break;
                     case "macros":
-                        macro_name = sexpr.first().second().first().data;
+                        macro_name = data[1];
                         break;
                     case "procedures":
-                        procedures_name = sexpr.first().second().first().data;
+                        procedures_name = data[1];
                         break;
                     /*case "declaration":
-                        declaration_name = sexpr.first().second().first().data;
+                        declaration_name = data[1];
                         break;*/
                     case "import":
-                        import_name = sexpr.first().second().first().data;
+                        import_name = data[1];
                         break;
                     case "translate":
-                        translate_name = sexpr.first().second().first().data;
+                        translate_name = data[1];
                         break;
                     case "libpath":
-                        libpath = sexpr.first().second().first().data;
+                        libpath = data[1];
                         break;
                     case "compilation":
-                        compilation = sexpr.first().second().first().data;
+                        compilation = data[1];
                         break;
                     case "variables":
-                        variables = sexpr.first().second().first().data;
+                        variables = data[1];
                         break;
                     default:
                         throw new Exception("ERROR on reading config files categories. Please check syntax.");

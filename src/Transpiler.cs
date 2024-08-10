@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace Azurite
 {
@@ -20,32 +21,27 @@ namespace Azurite
         public static string Convert(Parser.SExpression expression, string language, string type = null)
         {
 
-            //If no child then return the data fo the current expression if there is data.
-            if (expression.first() == null)
-                return (expression.data == "NULL") ? "" : expression.data;
-            if (expression.first().data == Langconfig.function_name)
+            List<Parser.SExpression> children = expression.LoadAllChild();
+            
+            if (children.Count == 0)
+            {
+                return expression.data?? "";
+            }
+            if (children[0].data == Langconfig.function_name)
                 FormalReborn.SetContextFunc(expression);
 
 
             // Try to find some translate in the expression and convert them into string.
-            string test = Directive.Execute(language, expression, type);
-            if (expression.first().data == Langconfig.function_name)
+            string result = Directive.Execute(language, expression, type);
+            if (children[0].data == Langconfig.function_name)
                 FormalReborn.ExitContextFunc();
-            if (test != null)
-                return test;
-
-            // If the first child has data
-
-            //Get the data of the first child then convert the second.
-            if (!expression.second().is_end)
-            {
-                // return "not found";
-                throw new Azurite.Ezception(501, $"No translate found in {language}", expression.Stringify());
-
-            }
-            var result = Convert(expression.first(), language);
-            return result;
-
+            if (result != null)
+                return result;
+            
+            // This is for compatibility purpose, to not translate atoms
+            if (children[0].data != null && children.Count == 1)
+                return children[0].data;
+            throw new Azurite.Ezception(501, $"No translate found in {language}", expression.Stringify());
         }
         public static string Convert(string input, string language, string type = null)
         {

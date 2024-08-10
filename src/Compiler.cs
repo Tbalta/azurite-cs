@@ -17,6 +17,7 @@ namespace Azurite
         /// <returns>An S-expression simplified.</returns>
         public static Parser.SExpression Compile(Parser.SExpression expression)
         {
+         #if COMPILE
             if (expression.has_data)
             {
                 if (EnvironmentManager.IsVariable(expression.data))
@@ -24,23 +25,28 @@ namespace Azurite
                 return expression;
             }
 
-            if (expression.first().data == Langconfig.function_name || expression.first().data == Langconfig.variables)
+            List<Parser.SExpression> children = expression.LoadAllChild();
+
+            if (children[0].data == Langconfig.function_name || children[0].data == Langconfig.variables)
                 return expression;
 
-            if (Directive.known_token.Contains(expression.first().data))
-                return FoldingExpression(Compile(EnvironmentManager.ExecuteFunc(expression.first().data, expression.second())));
+            if (Directive.known_token.Contains(children[0].data))
+                return FoldingExpression(Compile(EnvironmentManager.ExecuteFunc(children[0].data, expression.second())));
 
 
-            if (expression.first().data == "if")
+            if (children[0].data == "if")
                 return ResolveCond(ref expression) ? Compile(expression) : expression;
-            if (expression.first().data == "or" || expression.first().data == "and")
+            if (children[0].data == "or" || children[0].data == "and")
                 return ResolveBool(expression);
 
-            if (expression.first() != null)
-                expression.first(Compile(expression.first()));
+            if (children[0] != null)
+                expression.first(Compile(children[0]));
             if (expression.second() != null)
                 expression.second(Compile(expression.second()));
             return FoldingExpression(expression);
+            #else
+                return expression;
+            #endif
         }
 
         /// <summary>
@@ -50,7 +56,7 @@ namespace Azurite
         /// <returns>An S-expression simplified.</returns>
         public static Parser.SExpression FoldingExpression(Parser.SExpression expression)
         {
-
+            #if COMPILE
             if (expression.has_data || expression.second().has_data)
                 return expression;
 
@@ -75,7 +81,7 @@ namespace Azurite
         /// <returns>An S-expression simplified.</returns>
         private static Parser.SExpression SearchAndExecute(Parser.SExpression expression)
         {
-            if (expression.first().data == "+")
+            if (children[0].data == "+")
                 expression = SimplifyExpression<double>(expression.second(),
                     (expr => double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => Convert.ToDouble(expr.data, CultureInfo.InvariantCulture)),
@@ -83,7 +89,7 @@ namespace Azurite
                     "+"
                     );
 
-            else if (expression.first().data == "@")
+            else if (children[0].data == "@")
                 expression = SimplifyExpression<string>(expression.second(),
                     (expr => !double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => expr.data.Trim('\"')),
@@ -91,7 +97,7 @@ namespace Azurite
                     "@"
                 );
 
-            else if (expression.first().data == "*")
+            else if (children[0].data == "*")
                 expression = SimplifyExpression<double>(expression.second(),
                     (expr => double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => Convert.ToDouble(expr.data, CultureInfo.InvariantCulture)),
@@ -108,7 +114,7 @@ namespace Azurite
                 );
 
 
-            else if (expression.first().data == "-")
+            else if (children[0].data == "-")
                 expression = SimplifyExpression<double>(expression.second(),
                     (expr => double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => Convert.ToDouble(expr.data, CultureInfo.InvariantCulture)),
@@ -125,7 +131,7 @@ namespace Azurite
                     "-"
                 );
 
-            else if (expression.first().data == "/")
+            else if (children[0].data == "/")
                 expression = SimplifyExpression<double>(expression.second(),
                     (expr => double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => Convert.ToDouble(expr.data, CultureInfo.InvariantCulture)),
@@ -141,7 +147,7 @@ namespace Azurite
                     "/"
                 );
 
-            else if (expression.first().data == "mod")
+            else if (children[0].data == "mod")
                 expression = SimplifyExpression<double>(expression.second(),
                     (expr => double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => Convert.ToDouble(expr.data, CultureInfo.InvariantCulture)),
@@ -157,7 +163,7 @@ namespace Azurite
                     "/"
                 );
 
-            else if (expression.first().data == "<")
+            else if (children[0].data == "<")
                 expression = SimplifyExpression<double>(expression.second(),
                     (expr => double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => Convert.ToDouble(expr.data, CultureInfo.InvariantCulture)),
@@ -170,7 +176,7 @@ namespace Azurite
                     "<"
                 );
 
-            else if (expression.first().data == ">")
+            else if (children[0].data == ">")
                 expression = SimplifyExpression<double>(expression.second(),
                     (expr => double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => Convert.ToDouble(expr.data, CultureInfo.InvariantCulture)),
@@ -180,7 +186,7 @@ namespace Azurite
                     true
                 );
 
-            else if (expression.first().data == ">=")
+            else if (children[0].data == ">=")
                 expression = SimplifyExpression<double>(expression.second(),
                     (expr => double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => Convert.ToDouble(expr.data, CultureInfo.InvariantCulture)),
@@ -190,7 +196,7 @@ namespace Azurite
                     true
                 );
 
-            else if (expression.first().data == "<=")
+            else if (children[0].data == "<=")
                 expression = SimplifyExpression<double>(expression.second(),
                     (expr => double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => Convert.ToDouble(expr.data, CultureInfo.InvariantCulture)),
@@ -199,7 +205,7 @@ namespace Azurite
                     "<=",
                     true
                 );
-            else if (expression.first().data == "=")
+            else if (children[0].data == "=")
                 expression = SimplifyExpression<double>(expression.second(),
                     (expr => double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => Convert.ToDouble(expr.data, CultureInfo.InvariantCulture)),
@@ -208,7 +214,7 @@ namespace Azurite
                     "=",
                     true
                 );
-            else if (expression.first().data == "!=")
+            else if (children[0].data == "!=")
                 expression = SimplifyExpression<double>(expression.second(),
                     (expr => double.TryParse(expr.data, NumberStyles.Any, new CultureInfo("en-US"), out _)),
                     (expr => Convert.ToDouble(expr.data, CultureInfo.InvariantCulture)),
@@ -218,7 +224,7 @@ namespace Azurite
                     true
                 );
 
-            else if (expression.first().data == "merge")
+            else if (children[0].data == "merge")
                 expression = SimplifyExpression<Parser.SExpression>(
                     expression.second(),
                     (expr => true),
@@ -231,9 +237,7 @@ namespace Azurite
                     }),
                     "merge"
                 );
-
-
-
+            #endif
 
             return expression;
         }
@@ -254,7 +258,7 @@ namespace Azurite
             Func<Parser.SExpression, T> convertisseur,
             Func<List<T>, Parser.SExpression> evaluator, string keyword, bool needAll = false)
         {
-
+            #if COMPILE
 
             List<Parser.SExpression> nonEvaluated = new List<Parser.SExpression>();
             List<T> evaluated = new List<T>();
@@ -292,6 +296,9 @@ namespace Azurite
             }
 
             return (nonEvaluated.Count > 1) ? Parser.SExpression.fromList(nonEvaluated) : nonEvaluated[0];
+            #else
+            return expression;
+            #endif
         }
 
 
@@ -304,6 +311,7 @@ namespace Azurite
         /// <returns>The S-expression simplified.</returns>
         private static bool ResolveCond(ref Parser.SExpression expression)
         {
+            #if COMPILE
             List<Parser.SExpression> elements = expression.LoadAllChild();
             elements[1] = Compile(elements[1]);
 
@@ -323,18 +331,20 @@ namespace Azurite
             expression = elements[3];
             }
             // return Compile(elements[3]);
+            #endif
             return true;
 
         }
 
         private static Parser.SExpression ResolveBool(Parser.SExpression expression)
         {
+            #if COMPILE
             List<Parser.SExpression> childs = expression.LoadAllChild();
             List<bool> evaluated = new List<bool>();
             Func<List<bool>, bool> stopper;
             Func<List<bool>, string> evaluator;
 
-            switch (expression.first().data)
+            switch (children[0].data)
             {
                 case "or":
                     stopper = (x => x.Count != 0 && x[x.Count - 1]);
@@ -356,7 +366,9 @@ namespace Azurite
             }
 
             return new Parser.SExpression(evaluator(evaluated), null, null);
-
+            #else
+            return expression;
+            #endif
         }
     }
 }

@@ -29,13 +29,6 @@ namespace Azurite
             return to_return;
         }
 
-        public static string get_from_ast(Parser.SExpression expr)
-        {
-            // string to_return = "";
-            if (expr.has_data) return expr.data;
-            return "(" + get_from_ast(expr.first()) + " " + get_from_ast(expr.second()) + ")";
-        }
-
         public static string repeat_string(string to_repeat, string bind, uint occurences)
         {
             if (occurences == 0) return "";
@@ -46,12 +39,6 @@ namespace Azurite
                 occurences--;
             }
             return r + to_repeat;
-        }
-
-        public static List<T> tail<T>(List<T> to_get)
-        {
-            if (to_get.Count < 2) return new List<T>();
-            return to_get.GetRange(1, to_get.Count - 1);
         }
 
         private static bool is_of_match_level(Parser.SExpression expression, Directive.MATCH_LEVEL lvl, string data_token = "")
@@ -115,7 +102,7 @@ namespace Azurite
 
             foreach (var scrut in b)
             {
-                if (a.ContainsKey(scrut.Key) && get_from_ast(a[scrut.Key]) != get_from_ast(scrut.Value))
+                if (a.ContainsKey(scrut.Key) && a[scrut.Key].Stringify() != scrut.Value.Stringify())
                 {
                     throw new Exception($"Macro incompatibility in subcall.");
                 }
@@ -128,107 +115,7 @@ namespace Azurite
             }
             return to_return;
         }
-
-        /*private static Parser.SExpression fromChildren(List<Parser.SExpression> to_merge){
-            if(to_merge.Count == 0)
-                return new Parser.SExpression("()");
-            if(to_merge.Count == 1)
-                return to_merge[0];
-            var to_return = new Parser.SExpression();
-            to_return.first(to_merge[0].Clone());
-            to_return.second(fromChildren(to_merge.GetRange(1, to_merge.Count-1)));
-            return to_return;
-        }*/
-
-        public static Parser.SExpression build_expr(Parser.SExpression left, Parser.SExpression right, string data)
-        {
-            var r = new Parser.SExpression("()");
-            r.first(left);
-            r.second(right);
-            r.data = data;
-            r.has_data = data != "" && data != null; //to_modify => should involve forst and second
-            return r;
-        }
-
-        static Parser.SExpression remove_nulls(Parser.SExpression expr)
-        {
-            var to_return = expr.Clone();
-            to_return.Map(x => !x.has_data && x.second().has_data && x.second().data == "NULL" ? build_expr(null, null, x.data) : x);
-            return to_return;
-        }
-
-        public static Parser.SExpression reinsert_nulls(Parser.SExpression expr)
-        {
-            var to_return = expr.Clone();
-            to_return.Map(x => !x.has_data && x.second().has_data && x.second().data != "NULL" ?
-            build_expr(x.first(), build_expr(x.second(), build_expr(null, null, "NULL"), null), null) : x);
-            to_return.PrettyPrint();
-            return to_return;
-        }
-
-        ///<summary> Matches two SExpression in order to detect macro application</summary>
-        ///<param name="reference"> The body of the macro prototype</param>
-        ///<param name="to_match"> The SExpression to try to match</param>
-        ///<returns> A Dictionary matching atoms in prototype with SExpression. Throws if unmached</returns> 
-        public static Dictionary<string, Parser.SExpression> Match(Parser.SExpression reference, Parser.SExpression to_match)
-        {
-
-            var to_return = new Dictionary<string, Parser.SExpression>();
-            int i = 0;
-            if (reference.has_data)
-            {
-                if (to_match.has_data && reference.data.Trim('\"') == to_match.data.Trim('\"'))
-                {
-                    to_return.Add(reference.data, to_match);
-                    return to_return;
-                }
-                return null;
-            }
-            if (to_match.first() == null)
-                return null;
-            var to_inspect = to_match.LoadAllChild();
-
-            var proto = reference.LoadAllChild();
-            foreach (var scrut in proto)
-            {
-                if (scrut.has_data)
-                {
-                    if (to_inspect.Count <= i)
-                        return null;
-
-                    var level = get_match_level_of(scrut.data);
-                    if (is_of_match_level(to_inspect[i], level, scrut.data))
-                    {
-                        to_return = Merge(to_return, new Dictionary<string, Parser.SExpression>() { { get_token(scrut.data, level), to_inspect[i] } });
-                    }
-                    else
-                    {
-                        //check of last_index
-                        if (i == proto.Count - 1 && level == Directive.MATCH_LEVEL.LIST)
-                        { //add checks for types
-                            to_return = Merge(to_return, new Dictionary<string, Parser.SExpression>()
-                            {{get_token(scrut.data, level), new Parser.SExpression(to_inspect.GetRange(i, to_inspect.Count-i))}});
-                        }
-                        else
-                        {
-                            return null;
-                            //throw new Exception($"Macro incompatibility : {get_from_ast(reference)} / {get_from_ast(to_match)}");
-                        }
-                    }
-                }
-                else
-                { //launches recursively
-                    var tempdico = Match(scrut, to_inspect[i]);
-                    if (tempdico == null)
-                        return null;
-                    to_return = Merge(to_return, Match(scrut, to_inspect[i]));
-                }
-                i++;
-            }
-            return to_return;
-        }
-
-
+    
         public static Dictionary<string, Parser.SExpression> MatchV2(Parser.SExpression reference, Parser.SExpression to_match)
         {
 
@@ -249,14 +136,19 @@ namespace Azurite
             List<Parser.SExpression> ref_childs = reference.LoadAllChild();
             List<Parser.SExpression> match_childs = to_match.LoadAllChild();
 
+            // If less element to match than reference
             if (match_childs.Count < ref_childs.Count)
                 return null;
-            if (ref_childs.Count < match_childs.Count && get_match_level_of(ref_childs[ref_childs.Count - 1].data) != Directive.MATCH_LEVEL.LIST)
+            
+            // If more element check if last one is a list
+            if (match_childs.Count > ref_childs.Count  && get_match_level_of(ref_childs[ref_childs.Count - 1].data) != Directive.MATCH_LEVEL.LIST)
                 return null;
+            
+            if (match_childs.Any(x => x == null))
+                return null;
+
             for (int i = 0; i < ref_childs.Count; i++)
             {
-                if (match_childs[i] == null)
-                    return null;
                 if (!ref_childs[i].has_data)
                 {
                     Dictionary<string, Parser.SExpression> temp_dict = MatchV2(ref_childs[i], match_childs[i]);
@@ -268,7 +160,7 @@ namespace Azurite
                 {
                     level = get_match_level_of(ref_childs[i].data);
                     if (i == ref_childs.Count - 1 && level == Directive.MATCH_LEVEL.LIST)
-                        to_return.Add(get_token(ref_childs[i].data, level), to_match[i]);
+                        to_return.Add(get_token(ref_childs[i].data, level), new Parser.SExpression(match_childs.Skip(i).ToList()));
                     else if (is_of_match_level(match_childs[i], level, ref_childs[i].data))
                     {
                         string token = get_token(ref_childs[i].data, level);

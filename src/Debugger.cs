@@ -1,11 +1,14 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace Azurite
 {
     public class Debugger
     {
+        public static bool no_menu = false;
 
         private enum COMMANDS_TYPE
         {
@@ -18,9 +21,9 @@ namespace Azurite
             UP,
             DOWN,
             EMPTY,
+            BUILT_IN,
             INVALID,
         }
-
 
         private class Command
         {
@@ -28,17 +31,22 @@ namespace Azurite
             public string argument;
         }
 
-
+        private static Dictionary<string, Action<Debugger>> builtin = new Dictionary<string, Action<Debugger>>
+        {
+            {"callstack", (Debugger debugger) => { debugger.printCallStack(); }},
+        };
 
         public static Stack<Debugger> stack = new Stack<Debugger>();
         public static HashSet<string> Breakpoints = new HashSet<string>();
 
 
 
-        public static Debugger create(string breakpoint)
+        public static Debugger create(Parser.SExpression breakpoint)
         {
             stack.Push(new Debugger(breakpoint, stack.Count));
             return stack.Peek();
+
+            return null;
         }
 
         public static void remove()
@@ -52,7 +60,11 @@ namespace Azurite
 
         private static Command ParseCommand(string entry)
         {
-            // parse command like "break (+ 5 2)"
+            if (entry == null)
+            {
+                return new Command { type = COMMANDS_TYPE.INVALID, argument = "NULL_COMMAND" };
+            }
+
             Dictionary<string, COMMANDS_TYPE> commands = new Dictionary<string, COMMANDS_TYPE>
             {
                 {"continue", COMMANDS_TYPE.CONTINUE},
@@ -71,6 +83,7 @@ namespace Azurite
                 {"down", COMMANDS_TYPE.DOWN},
                 {"d", COMMANDS_TYPE.DOWN},
                 {"", COMMANDS_TYPE.EMPTY}
+
             };
             entry = entry.Trim();
             var input = entry.Split(" ");
@@ -79,6 +92,10 @@ namespace Azurite
             if (commands.ContainsKey(command))
             {
                 return new Command { type = commands[command], argument = arg };
+            }
+            else if (builtin.ContainsKey(command))
+            {
+                return new Command { type = COMMANDS_TYPE.BUILT_IN, argument = command };
             }
             return new Command { type = COMMANDS_TYPE.INVALID, argument = command };
 
@@ -91,37 +108,80 @@ namespace Azurite
         private static Command lastCommand = new Command { type = COMMANDS_TYPE.EMPTY, argument = "" };
         public Dictionary<string, string> variables;
 
-        private string breakpoint;
+        public int line;
 
-        public Debugger(string breakpoint, int level = 0)
+        private Parser.SExpression breakpoint;
+
+        public Debugger(Parser.SExpression breakpoint, int level = 0)
         {
             this.breakpoint = breakpoint;
             this.level = level;
             this.variables = new Dictionary<string, string>();
+            this.line = breakpoint.line;
         }
 
 
-        public static void AddBreakpoint(string breakpoint)
+        public static void AddBreakpoint(Parser.SExpression breakpoint)
         {
-            Breakpoints.Add(breakpoint);
+            Breakpoints.Add(breakpoint.Stringify());
+            System.Console.WriteLine("Breakpoint added: " + breakpoint.Stringify());
         }
 
-        public static void RemoveBreakpoint(string breakpoint)
+        public static void RemoveBreakpoint(Parser.SExpression breakpoint)
         {
-            Breakpoints.Remove(breakpoint);
+            Breakpoints.Remove(breakpoint.Stringify());
         }
 
         public bool ShouldBreak()
         {
             if (level > 0)
             {
-                return stack.ElementAt(stack.Count - level).stepIn || step || Breakpoints.Contains(breakpoint);
+                return stack.ElementAt(stack.Count - level).stepIn || step || Breakpoints.Contains(breakpoint.Stringify());
             }
-            return step || Breakpoints.Contains(breakpoint);
+            return step || Breakpoints.Contains(breakpoint.Stringify());
+        }
+
+        public string location()
+        {
+            string name, file, line, col = "";
+            if (variables.ContainsKey("instruction") && variables.ContainsKey("instruction_line"))
+            {
+                name = variables["instruction"];
+                file = variables["instruction_file"];
+                line = variables["instruction_line"];
+                col = variables["instruction_col"];
+            }
+            else
+            {
+                name = breakpoint.Stringify();
+                file = breakpoint.file;
+                line = breakpoint.line.ToString();
+                col = breakpoint.column.ToString() + ":" + breakpoint.length.ToString();
+            }
+
+            if (no_menu)
+                return name + "\n" + file + "\n" + line + "\n" + col;
+            
+            return name + "@" + file + ":" + line + ":" + col;
+        }
+
+        public void printCallStack()
+        {
+            for (int i = 0; i < stack.Count; i++)
+            {
+                System.Console.WriteLine(stack.ElementAt(i).location());
+            }
         }
 
         public void PrintMenu()
         {
+            if (no_menu)
+            {
+                System.Console.WriteLine("stopped");
+                System.Console.Out.Flush();
+                return;
+            }
+
             try
             {
                 System.Console.Clear();
@@ -131,18 +191,10 @@ namespace Azurite
                 // ignore
             }
 
-            if (level > 0)
+            System.Console.WriteLine("Breakpoint hit: " + location());
+            if (variables.ContainsKey("effect"))
             {
-                System.Console.WriteLine("StepIn: " + stepIn);
-            }
-            if (variables.ContainsKey("instruction") && variables.ContainsKey("effect"))
-            {
-                System.Console.WriteLine("Breakpoint hit: " + variables["instruction"]);
-                System.Console.WriteLine(breakpoint + "->" + variables["effect"]);
-            }
-            else
-            {
-                System.Console.WriteLine("Breakpoint hit: " + breakpoint);
+                System.Console.WriteLine(breakpoint.Stringify() + "->" + variables["effect"]);
             }
 
         }
@@ -195,13 +247,28 @@ namespace Azurite
                         }
                         return;
                     case COMMANDS_TYPE.REMOVE:
-                        RemoveBreakpoint((command.argument != "") ? command.argument : breakpoint);
+                        try
+                        {
+
+                            RemoveBreakpoint((command.argument != "") ? new Parser.SExpression(command.argument) : breakpoint);
+                        }
+                        catch (Azurite.Ezception)
+                        {
+                            System.Console.WriteLine("Unable to remove breakpoint: " + command.argument);
+                        }
                         break;
                     case COMMANDS_TYPE.INVALID:
-                        System.Console.WriteLine("Invalid command");
+                        System.Console.WriteLine("Invalid command" + entry);
                         break;
                     case COMMANDS_TYPE.BREAK:
-                        AddBreakpoint(command.argument);
+                        try
+                        {
+                            AddBreakpoint(new Parser.SExpression(command.argument));
+                        }
+                        catch (Azurite.Ezception)
+                        {
+                            System.Console.WriteLine("Unable to add breakpoint: " + command.argument);
+                        }
                         break;
                     case COMMANDS_TYPE.UP:
                         if (level <= 0)
@@ -224,6 +291,13 @@ namespace Azurite
                             return;
                         }
                         break;
+                    case COMMANDS_TYPE.BUILT_IN:
+                        builtin[command.argument](this);
+                        break;
+                }
+                if (Debugger.no_menu)
+                {
+                    System.Console.WriteLine("cmd_done");
                 }
             }
 
