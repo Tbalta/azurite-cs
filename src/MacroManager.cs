@@ -91,9 +91,12 @@ namespace Azurite
             modification = true;
 
             Parser.SExpression effect = macro_list[index].body.Clone();
-            Debugger debugger = Debugger.create(expression.Stringify());
-            debugger.variables.Add("effect", effect.Stringify());
-            debugger.variables["instruction"] = expression.Stringify();
+            Debugger debugger = Debugger.create(expression);
+            if (Azurite.debugger)
+            {
+                debugger.variables.Add("effect", effect.Stringify());
+                debugger.variables["instruction"] = expression.Stringify();
+            }
 
             if (Azurite.DEBUG)
             {

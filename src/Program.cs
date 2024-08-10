@@ -23,15 +23,9 @@ namespace Azurite
             public bool is_end { get; set; }
             public int line { get; set; }
             public int column { get; set; }
+            public int length { get; set; }
 
-            public static List<string> remove_parenthesis(List<string> data)
-            {
-                return (data[0] == "(" && data[data.Count - 1] == ")") ? data.GetRange(1, data.Count - 2) : data;
-            }
-            public static List<string> remove_first_and_last(List<string> data)
-            {
-                return data.GetRange(1, data.Count - 2);
-            }
+            public string file { get; set; }
 
             public static List<string> trim(List<string> data)
             {
@@ -61,17 +55,18 @@ namespace Azurite
                     throw new Azurite.Ezception(101, " missing '(' at " + param);
                 if (parenthesis > 0)
                     throw new Azurite.Ezception(101, " missing ')' at " + param);
-                array = trim(array);
-                return array;
+
+                return array.Where(x => x != "").ToList();
             }
 
             public static List<string> tokenize(string data)
             {
-                List<string> to_return = new List<string>();
-                to_return.Add("");
+                List<string> to_return = new List<string>
+                {
+                    ""
+                };
                 bool current_between_parenthesis = false;
                 bool isEscaped = false;
-                // bool isstring = false;
                 foreach (char c in data)
                 {
 
@@ -79,19 +74,17 @@ namespace Azurite
                     {
                         to_return[to_return.Count - 1] += c;
                     }
-                    else if (c == ' ' || c == '(' || c == ')')
-                    {
-                        if (c != ' ')
-                            to_return.Add(char.ToString(c));
-                        else
-                            to_return.Add("");
-                        to_return.Add("");
-                    }
-                    else if ((c == '"') && !isEscaped)
+                    else if (c == '"')
                     {
                         to_return[to_return.Count - 1] += c;
                         current_between_parenthesis = !current_between_parenthesis;
                     }
+                    else
+                    {
+                        to_return.Add(char.ToString(c));
+                        to_return.Add("");
+                    }
+
                     if (c == '\\')
                     {
                         isEscaped = true;
@@ -99,10 +92,6 @@ namespace Azurite
                     else if (isEscaped)
                     {
                         isEscaped = false;
-                    }
-                    else if (isEscaped)
-                    {
-                        // isstring = c != '"';
                     }
                 }
                 return to_return;
@@ -112,7 +101,7 @@ namespace Azurite
             {
                 int pos = 0;
                 uint count = 1;
-                foreach (var element in data)
+                foreach (string element in data)
                 {
                     if (pos > start)
                     {
@@ -133,84 +122,86 @@ namespace Azurite
                 }
                 return -1;
             }
-            public static string add_spaces(string data)
-            {
-                string to_return = "";
-                bool p = false;
-                bool b = false;
-                foreach (var c in data)
-                {
-                    if (!p && (c == '(' || c == ')'))
-                    {
-                        if (b)
-                            to_return += c;
-                        else
-                            to_return += $" {c} ";
-                    }
-                    else if (c == '"')
-                    {
-                        p = !p;
-                        to_return += c;
-                        b = false;
-                    }
-                    else
-                    {
-                        to_return += c;
-                    }
-                }
-                return to_return;
-            }
 
-            public SExpression()
+            public SExpression(List<string> array, int line = 0, int col = 0, string file = "")
             {
-                data = "NULL";
-                has_data = true;
-                is_end = true;
-            }
-
-            public SExpression(string data, List<SExpression> childs)
-            {
-                this.childs = childs;
-                this.data = data;
-                this.has_data = data != null;
-            }
-
-            public SExpression(List<string> array)
-            {
-
+                Debug.Assert(array.Count > 0);
+                this.file = file;
                 if (array.Count == 1)
                 {
                     this.data = array[0];
+                    this.column = col;
+                    this.line = line;
+                    this.length = array[0].Length;
                     has_data = true;
                     return;
                 }
-                
-                // Skip the first parenthesis
-                array = remove_parenthesis(array);
+
+
+                // Find the first parenthesis
                 int start = 0;
+                while (start < array.Count && array[start] != "(")
+                {
+                    if (array[start] == "\n")
+                    {
+                        line++;
+                        col = 0;
+                    }
+                    else
+                    {
+                        col += array[start].Length;
+                    }
+                    start++;
+                }
+                this.line = line;
+                this.column = col;
+
+                int end = find_matching_parenthesis(array, start);
+                if (end == -1)
+                {
+                    throw new QuickException("missing ')'");
+                }
+                array = array.GetRange(start + 1, end - (start + 1));
+                start = 0; // restore to 0 after GetRange
+
+                this.length = array.Sum(x => x.Length) + 2;
+                col += 1; // take into account the (
 
                 while (start < array.Count)
                 {
-                    if (array[start] == "")
+                    Debug.Assert(array[start] != "");
+
+                    // Skip whitespaces
+                    if (array[start].All(x => char.IsWhiteSpace(x)))
                     {
+                        if (array[start].Contains("\n"))
+                        {
+                            col = 0;
+                            line += array[start].Count(x => x == '\n');
+                        } else 
+                        {
+                            col += array[start].Length;
+                        }
                         start++;
                         continue;
                     }
+
                     if (array[start] == "(")
                     {
                         int pos = find_matching_parenthesis(array, start);
-                        childs.Add(new SExpression(array.GetRange(start, pos - start + 1)));
+                        childs.Add(new SExpression(array.GetRange(start, pos - start + 1), line, col, file));
                         start = pos + 1;
                     }
                     else
                     {
-                        childs.Add(new SExpression(array[start]));
+                        childs.Add(new SExpression(array[start], line, col, file));
                         start++;
                     }
+                    col += childs.Last().length;
                 }
             }
 
-            public SExpression(string param) : this(parseString(param))
+            public SExpression(string param, int line = 0, int col = 0, string filename = "") : this(parseString(param), line, col, filename)
             {
             }
 
@@ -220,15 +211,13 @@ namespace Azurite
                 data = sExpression.data;
                 has_data = sExpression.has_data;
                 is_end = sExpression.is_end;
-                childs = sExpression.childs.ConvertAll(x => x.Clone());
+                line = sExpression.line;
+                column = sExpression.column;
+                length = sExpression.length;
+                file = sExpression.file;
+                childs = sExpression.childs.ConvertAll(x => x.Clone());                
             }
 
-            public SExpression(double value)
-            {
-                this.data = value.ToString();
-                this.has_data = true;
-                this.is_end = true;
-            }
             public SExpression Clone()
             {
                 return new SExpression(this);
@@ -239,6 +228,10 @@ namespace Azurite
                 this.childs = liste;
                 this.has_data = false;
                 this.is_end = false;
+                this.line = childs[0].line;
+                this.column = childs[0].column;
+                this.length = childs.Sum(x => x.length);
+
             }
 
             public void PrettyPrint(string indent = "")
@@ -308,10 +301,14 @@ namespace Azurite
 
             private void ImportExpression(SExpression expression)
             {
-                this.childs = expression.childs;
-                this.data = expression.data;
-                this.has_data = expression.has_data;
-                this.is_end = expression.is_end;
+                childs = expression.childs;
+                data = expression.data;
+                has_data = expression.has_data;
+                is_end = expression.is_end;
+                line = expression.line;
+                column = expression.column;
+                length = expression.length;
+                file = expression.file;
             }
 
             /// <summary>
@@ -350,16 +347,16 @@ namespace Azurite
             /// Return true if the S-expression respect the match level of a proto.
             /// </summary>
             /// <param name="proto">The proto to match</param>
-            public bool matchProto(KeyValuePair<string, KeyValuePair<Directive.MATCH_LEVEL, string>> proto)
+            public bool matchProto(KeyValuePair<SExpression, KeyValuePair<Directive.MATCH_LEVEL, string>> proto)
             {
                 if (proto.Value.Key == Directive.MATCH_LEVEL.LIGHT || proto.Value.Key == Directive.MATCH_LEVEL.LIST)
                     return true;
                 if (proto.Value.Key == Directive.MATCH_LEVEL.STRICT)
                     return this.has_data;
                 if (proto.Value.Key == Directive.MATCH_LEVEL.EXACT)
-                    return this.data == proto.Key;
+                    return this.data == proto.Key.data;
                 if (proto.Value.Key == Directive.MATCH_LEVEL.PARTIAL)
-                    return Directive.CheckPartialMatch(proto.Key, this.data);
+                    return Directive.CheckPartialMatch(proto.Key.data, this.data);
                 if (proto.Value.Key == Directive.MATCH_LEVEL.CALLABLE)
                     return this.isCallable();
                 return false;
@@ -408,11 +405,10 @@ namespace Azurite
 
             // string filePath = "";
             // ParameterManagers.OnInput = input => { if (!Langconfig.is_loaded) Langconfig.load(); Azurite.Load(input); Azurite.Compile(); };
-            List<string> languages = new List<string>();
+            
             string outputFile = "";
-
             ParameterManagers.registerCommand(
-                new ParameterManagers.Command("-t", langs => languages = langs,
+                new ParameterManagers.Command("-t", langs => Azurite.target_languages = langs,
                     new List<string>() { "--target" },
                     true
                     ));
@@ -456,6 +452,10 @@ namespace Azurite
                 new ParameterManagers.Command("-g", output => Azurite.debugger = true,
                                               new List<string>() { "--debugger" },
                                               false));
+            ParameterManagers.registerCommand(
+                new ParameterManagers.Command("-s", output => Debugger.no_menu = true,
+                                              new List<string>() { "--server" },
+                                                false));
 
             ParameterManagers.Execute(options.ToArray());
             if (!Langconfig.is_loaded)
@@ -464,21 +464,19 @@ namespace Azurite
 
             if (Azurite.debugger)
             {
-                var debugger = Debugger.create("main");
+                var debugger = Debugger.create(new Parser.SExpression("main", 0, 0, inputFiles.FirstOrDefault("main")));
                 debugger.Breakpoint();
+                debugger.stepIn |= debugger.step;
             }
 
             foreach (string file in inputFiles)
             {
+                Azurite.main_file = file;
                 Azurite.Load(file);
                 Azurite.Compile();
             }
 
-            foreach (string lang in languages)
-            {
-                Azurite.Export(outputFile + "." + lang, lang);
-                Console.WriteLine($"file saved as {outputFile + "." + lang}");
-            }
+            Azurite.Export(outputFile);
 
 
             Azurite.DisplayError();

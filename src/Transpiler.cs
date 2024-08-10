@@ -39,7 +39,7 @@ namespace Azurite
                 return result;
             
             // This is for compatibility purpose, to not translate atoms
-            if (children[0].data != null)
+            if (children[0].data != null && children.Count == 1)
                 return children[0].data;
             throw new Azurite.Ezception(501, $"No translate found in {language}", expression.Stringify());
         }

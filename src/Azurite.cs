@@ -10,10 +10,19 @@ namespace Azurite
     /// </summary>
     public static class Azurite
     {
-        
+        public static string main_file = "";
         public static string stdlib = "";
 
         public static bool debugger = false;
+
+        public static List<string> target_languages = new List<string>();
+        public static Dictionary<string, List<string>> result = new Dictionary<string, List<string>>();
+
+        public static string getRelativePath(string path)
+        {
+            var mainPath = Path.GetDirectoryName(main_file);
+            return Path.GetRelativePath(mainPath, path);
+        }
 
         /// <summary>
         /// Language currently imported inside Azurite.
@@ -121,7 +130,7 @@ namespace Azurite
                 return;
             loaded_files.Add(path);
             string[] fileContent = File.ReadAllLines(path);
-            Load(fileContent, filename);
+            Load(fileContent, path);
             Console.WriteLine("successfully loaded: " + path + " in the current Azurite runtime");
 
         }
@@ -132,8 +141,7 @@ namespace Azurite
         /// </summary>
         public static void Load(string[] fileContent, string filename = "")
         {
-            List<string> output = new List<string>();
-            //Should change this yo a plain SExpression
+            List<string> lines = new List<string>();
 
             for (int index = 0; index < fileContent.Length;)
             {
@@ -144,49 +152,53 @@ namespace Azurite
                     newLine += line;
 
                     index++;
+                    lines.Add("");
                 } while (Parser.SExpression.find_matching_parenthesis(
                         Parser.SExpression.trim(
                             Parser.SExpression.tokenize(newLine)), 0) == -1 && index < fileContent.Length);
 
-                output.Add(newLine);
+                lines[lines.Count - 1] = newLine;
             }
 
-
-
-            int offset = 0;
-            for (int index = 0; index < output.Count; index++)
+            for (int i = 0; i < lines.Count; i++)
             {
-                string line = output[index];
-
+                var line = lines[i];
                 if (line == "")
-                {
-                    offset++;
                     continue;
-                }
 
-                if (!DEBUG)
+
+                try
                 {
-                    try
-                    {
-                        Azurite.Load(new Parser.SExpression(line), line);
-                    }
-                    catch (Ezception e)
-                    {
-                        errors_list.Add(new Ezception(e.code, e.Message, (e.text == "") ? output[index] : e.text, index - offset + 1, e.get_InnerException()));
-                    }
-                    catch (Exception e)
-                    {
-                        errors_list.Add(new Ezception(0, "unknown error please report the following lines:" + e.Message, output[index], index - offset + 1));
-                    }
+                    Load(new Parser.SExpression(line, i + 1, 0, filename), line);
                 }
-                else
+                catch (Ezception e)
                 {
-                    Azurite.Load(new Parser.SExpression(line), line);
+                    errors_list.Add(new Ezception(e.code, e.Message, (e.text == "") ? line : e.text, i, e.get_InnerException()));
                 }
+#if !DEBUG
+                catch (Exception e)
+                {
+                    errors_list.Add(new Ezception(0, "unknown error please report the following lines:" + e.Message, line, i));
+                    throw;
+                }
+#endif
+
+
             }
         }
 
+        public static void AddExpressionToResult(Parser.SExpression expression)
+        {
 
+            foreach (var language in target_languages)
+            {
+                if (!result.ContainsKey(language))
+                    result[language] = new List<string>();
+                string expressionString = ExpressionToString(expression, language);
+                if (expressionString != "")
+                    result[language].Add(expressionString);
+            }
+        }
 
         /// <summary>
         /// Process an S-expression and add it if necessary in the current azurite context
@@ -195,18 +207,26 @@ namespace Azurite
         /// <param name="line">The S-expression as a str</param>
         public static void Load(Parser.SExpression arbre, string line = "")
         {
+            Debugger debugger = Debugger.create(arbre);
+
+            #if DEBUG
+                debugger.variables.Add("func", "Load");
+            #endif
+
+            if (Azurite.debugger && debugger.ShouldBreak())
+                debugger.Breakpoint();
+
+            expressions_list = new List<Expression>();
             Expression expression = new Expression(MacroApply(arbre), line);
             if (!Process(expression))
             {
-                // if (Langconfig.compilation == "1")
-                //     expression.arbre = Compiler.FoldingExpression(expression.arbre);
-                // MyFormal.GetStupidType(expression.arbre);
-                expressions_list.Add(expression);
-            }
-            else if (Azurite.DEBUG)
+                AddExpressionToResult(expression.arbre);
+            } else 
             {
-                // expressions_list.Add(new Expression(expression.arbre, expression.arbre.Stringify()));
+                expressions_list.ForEach(expr => AddExpressionToResult(expr.arbre));
             }
+            Debugger.remove();
+
         }
         /// <summary> Check if <paramref name="expression"/> start with an explicit token and do the appropriate action
         /// <param name="expression">The expression to check.</param>
@@ -303,96 +323,21 @@ namespace Azurite
         /// <param name="language">The targeted language.</param>
         /// <return>A list containing the translated list.</return>
         /// </summary>
-        public static List<string> ExpressionToString(string language)
+        public static string ExpressionToString(Parser.SExpression expression, string language)
         {
-            List<string> expressions = new List<string>();
-            int line = 0;
-            if (!DEBUG)
-            {
-                for (; line < expressions_list.Count; ++line)
-                {
-                    Transpiler.ResetTracking();
-                    Expression expression = expressions_list[line];
-
-                    try
-                    {
-                        string text = Transpiler.Convert(expression.arbre, language);
-                        if (text != "")
-                            expressions.Add(text);
-
-                    }
-                    catch (Ezception e)
-                    {
-                        errors_list.Add(new Ezception(e.code, e.Message, (e.text == "") ? expression.line : e.text, line, e.get_InnerException()));
-                        // errors_list.Add(new Ezception(e.code, e.Message, expression.line, line));
-                    }
-
-
-                }
-            }
-            else
-            {
-                for (; line < expressions_list.Count; ++line)
-                {
-                    Transpiler.ResetTracking();
-                    Expression expression = expressions_list[line];
-                    string text = "";
-                    if (Azurite.DEBUG)
-                    {
-                        try
-                        {
-                            text = Transpiler.Convert(expression.arbre, language);
-
-                        }
-                        catch (Azurite.Ezception e)
-                        {
-                            errors_list.Add(e);
-                            // text = expression.line;
-                        }
-
-                    }
-                    else
-                    {
-                        text = Transpiler.Convert(expression.arbre, language);
-                    }
-                    if (text != "")
-                        expressions.Add(text);
-                }
-            }
-            //}
-            //catch (System.Exception e)
-            //{
-            //    throw new System.Exception($"at {expressions_list[line].line}", e);
-            //}
-
-            return expressions;
-        }
-
-        /// <summary>
-        /// Take a a string <paramref name="input"/> and convert it in <paramref name="language"/>.
-        /// </summary>
-        /// <param name="input">The string to convert.</param>
-        /// <param name="language">The language to convert in.</param>
-        /// <returns></returns>
-        public static string TranslateExpression(string input, string language)
-        {
-            Parser.SExpression expression = new Parser.SExpression(input);
-            return TranslateExpression(expression, language, input);
-        }
-
-        /// <summary>
-        /// Take an S-expression and convert it.
-        /// </summary>
-        /// <param name="expression">The S-expression to convert.</param>
-        /// <param name="language">The targeted language for the conversion.</param>
-        /// <param name="input">The non parsed expression.</param>
-        /// <returns>Return the expression converted in the specified language.</returns>
-        public static string TranslateExpression(Parser.SExpression expression, string language, string input = "")
-        {
-            Azurite.Process(new Expression(expression, input));
+            Transpiler.ResetTracking();
             return Transpiler.Convert(expression, language);
         }
 
+
+        public static void Export(string path)
+        {
+            foreach (var language in target_languages)
+            {
+                Export(path + "." + language, language);
+                Console.WriteLine("successfully exported: " + path + "." + language);
+            }
+        }
         /// <summary>
         /// Save and translate the S-expression loaded in Azurite.cs
         /// </summary>
@@ -401,25 +346,16 @@ namespace Azurite
         public static void Export(string path, string language)
         {
             List<string> imports = Directive.Imports_list;
-            List<string> conversion = new List<string>();
-            try
-            {
-                conversion = new List<string>(imports.Concat(ExpressionToString(language)));
+            List<string> fileContent = result[language];
+            fileContent.InsertRange(0, imports);
 
-            }
-            catch (Ezception e)
-            {
-                TextWriter errorWriter = Console.Error;
-                errorWriter.WriteLine($"{e.code}: {e.Message} {e.text}");
-                System.Environment.Exit(1);
-            }
 
             if (Azurite.DEBUG)
-                conversion.AddRange(debug_list);
+                fileContent.InsertRange(0, debug_list);
 
-            for (int i = 0; i < conversion.Count; i++)
+            for (int i = 0; i < fileContent.Count; i++)
             {
-                conversion[i] = conversion[i]
+                fileContent[i] = fileContent[i]
                     .Replace("\\n", "\n")
                     .Replace("\\t", "\t")
                     .Replace("\\\"", "\"")
@@ -431,21 +367,10 @@ namespace Azurite
             }
             Directive.Imports_list = new List<string>();
 
-            File.WriteAllLines(path, conversion);
+            File.WriteAllLines(path, fileContent);
 
         }
 
-
-        /// <summary>
-        /// Print all expression stored in Azurite.
-        /// </summary>
-        public static void DisplayExpressions()
-        {
-            foreach (Expression expression in expressions_list)
-            {
-                expression.arbre.PrettyPrint();
-            }
-        }
 
         /// <summary>
         /// Get the file extension for a language.
@@ -485,7 +410,6 @@ namespace Azurite
             foreach (Ezception error in errors_list)
             {
                 DisplayError(error);
-                // errorWriter.WriteLine($"{errors.code} {errors.Message} at line {errors.index}: {errors.text}");
             }
 
         }

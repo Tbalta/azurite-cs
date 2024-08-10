@@ -4,10 +4,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-using Prototype = System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, System.Collections.Generic.KeyValuePair<Azurite.Directive.MATCH_LEVEL, string>>>;
 namespace Azurite
 {
-    using Formal = FormalReborn;
+    using Prototype = List<KeyValuePair<Parser.SExpression, KeyValuePair<Directive.MATCH_LEVEL, string>>>;
 
     ///<summary>
     /// Directive is the class wich handle the translate.
@@ -65,12 +64,18 @@ namespace Azurite
             /// <summary> the structure in the targeted language ex: Console.Write({x}) </summary>
             public string effect;
 
+            public int line;
+
+            public string file;
+
             /// <summary> The type of the instruction ex:"num" "num" "bool"</summary> 
-            public Instruction(string import, Prototype proto, string effect)
+            public Instruction(string import, Prototype proto, string effect, int line, string file)
             {
                 this.proto = proto;
                 this.effect = effect;
                 this.import = import;
+                this.line = line;
+                this.file = file;
             }
 
             /// <summary> Equal check if the specified instruction is equal to the current
@@ -84,9 +89,9 @@ namespace Azurite
             public override string ToString()
             {
                 string to_return = "(";
-                foreach (KeyValuePair<string, KeyValuePair<MATCH_LEVEL, string>> entry in proto)
+                foreach (var entry in proto)
                 {
-                    to_return += Directive.Tokenize(entry.Key, entry.Value.Key) + " ";
+                    to_return += Directive.Tokenize(entry.Key.data, entry.Value.Key) + " ";
                 }
                 return to_return.TrimEnd() + ")";
             }
@@ -198,11 +203,10 @@ namespace Azurite
         /// </summary>
         private static Instruction Match(string lang, Parser.SExpression expression, string forced = null)
         {
-            var arguments = expression.LoadAllChild();
             var lang_instruction = instructions_list[Azurite.LanguageHandler.getLanguageIndex(lang)];
-            var result = lang_instruction.Where(x => x.proto.Count == arguments.Count && SexpressionMatch(expression, x.proto));
+            var result = lang_instruction.Where(x => SexpressionMatch(expression, x.proto));
             if (result.Count() == 0)
-                return new Instruction(null, null, null);
+                return new Instruction(null, null, null, -1, null);
             return result.MaxBy(x => protoScore(x.proto));
         }
 
@@ -210,12 +214,13 @@ namespace Azurite
         /// <param name="expression"> The expression to evaluate. </param>
         /// <param name="filename"> if specified the tag to add to every Strong Match </param>
         /// <return> The list of parameters associated with their match Level (cf: documentation) </return>
-        private static List<KeyValuePair<string, MATCH_LEVEL>> Evaluate(Parser.SExpression expression, string filename = "")
+        private static List<KeyValuePair<Parser.SExpression, MATCH_LEVEL>> Evaluate(Parser.SExpression expression, string filename = "")
         {
-            List<KeyValuePair<string, MATCH_LEVEL>> arguments = new List<KeyValuePair<string, MATCH_LEVEL>>();
+            List<KeyValuePair<Parser.SExpression, MATCH_LEVEL>> arguments = new List<KeyValuePair<Parser.SExpression, MATCH_LEVEL>>();
 
-            foreach (string arg in expression.LoadAllData())
+            foreach (var expr in expression.LoadAllChild())
             {
+                string arg = expr.data;
                 if (arg is null)
                     throw new Azurite.Ezception(504, "translate argument is not an atome");
                 MATCH_LEVEL type = MATCH_LEVEL.LIGHT;
@@ -246,8 +251,8 @@ namespace Azurite
                     argument = argument.Replace("[", "");
                     argument = argument.Replace("]", "");
                 }
-
-                arguments.Add(new KeyValuePair<string, MATCH_LEVEL>(argument, type));
+                expr.data = argument;
+                arguments.Add(new KeyValuePair<Parser.SExpression, MATCH_LEVEL>(expr, type));
             }
 
             return arguments;
@@ -279,7 +284,7 @@ namespace Azurite
             Debug.Assert(children.Count >= 3);
 
             // (translate[0] (args[1]) (type[2]))
-            List<KeyValuePair<string, MATCH_LEVEL>> arguments = Evaluate(children[1], filename);
+            List<KeyValuePair<Parser.SExpression, MATCH_LEVEL>> arguments = Evaluate(children[1], filename);
 
             List<string> type = children[1].LoadAllData();
 
@@ -289,14 +294,15 @@ namespace Azurite
 
             for (int i = 0; i < arguments.Count; i++)
             {
-                string name = arguments[i].Key;
+                Parser.SExpression arg = arguments[i].Key;
+                string name = arg.data;
                 MATCH_LEVEL level = arguments[i].Value;
                 string arg_type = "";
                 // Check if parameters is already present except for exact match, also check for partial match
-                if (proto.Where(val => val.Value.Key != MATCH_LEVEL.EXACT).Any(val => val.Key == name || val.Key.Contains("|" + name+ "|") || name.Contains("|" + val.Key + "|")))
+                if (proto.Where(val => val.Value.Key != MATCH_LEVEL.EXACT).Any(val => val.Key.data == name || val.Key.data.Contains("|" + name+ "|") || name.Contains("|" + val.Key.data + "|")))
                     throw new Azurite.Ezception(505, "Two parameters have the same name");
                 
-                proto.Add(new KeyValuePair<string, KeyValuePair<MATCH_LEVEL, string>>(name, new KeyValuePair<MATCH_LEVEL, string>(level, arg_type)));
+                proto.Add(new KeyValuePair<Parser.SExpression, KeyValuePair<MATCH_LEVEL, string>>(arg, new KeyValuePair<MATCH_LEVEL, string>(level, arg_type)));
             }
             protoList.Add(new Tuple<Prototype, string>(proto, "any"));
 
@@ -317,7 +323,7 @@ namespace Azurite
                     import = elemt[1].Substring(1, elemt[1].Length - 2).Replace($"{{{Langconfig.libpath}}}", Azurite.stdlib); ;
                 string effect = elemt[2].Substring(1, elemt[2].Length - 2);
 
-                AddInstruction(cible, new Instruction(import, proto, effect));
+                AddInstruction(cible, new Instruction(import, proto, effect, lang.line, lang.file));
             }
         }
         #endregion
@@ -348,7 +354,7 @@ namespace Azurite
             Debugger debugger = Debugger.stack.Peek();
             debugger.variables["effect"] = effect.Replace(text, $"\x1b[31m{text}\x1b[0m");
             
-            List<string> argumentName = instruction.proto.ConvertAll(x => x.Key);
+            List<string> argumentName = instruction.proto.ConvertAll(x => x.Key.data);
 
             for (int i = 0; i < argumentName.Count; i++)
             {
@@ -363,12 +369,13 @@ namespace Azurite
             Parser.SExpression expression;
             try
             {
-                expression = new Parser.SExpression(text);
+                expression = new Parser.SExpression(text, instruction.line);
             }
             catch (Azurite.Ezception e)
             {
-                debugger.Breakpoint();            
-                throw new Azurite.Ezception(501, $"Unable to parse the expression inside <eval {text}>" , text, -1, e);
+                if (Azurite.debugger)
+                    debugger.Breakpoint();            
+                throw new Azurite.Ezception(501, $"Unable to parse the expression inside <eval {text}>" , text, instruction.line, e);
             }
             #if !DEBUG
             catch (Exception)
@@ -456,9 +463,13 @@ namespace Azurite
             string effect = instruction.effect;
 
             int size = instruction.proto.Count;
-            Debugger debugger = Debugger.create(expression.Stringify());
-            // Replace global variable
+            Debugger debugger = Debugger.create(expression);
+            #if DEBUG
+                debugger.variables.Add("func", "Execute");
+            #endif
+            debugger.line = instruction.line;
 
+            // Replace global variable
             effect.Replace($"{{{Langconfig.libpath}}}", Azurite.stdlib);
 
             var localVariables = new Dictionary<string, string>();
@@ -469,9 +480,12 @@ namespace Azurite
             debugger.variables.Add("effect", effect);
             debugger.variables.Add("callstack", string.Join(" -> ", Transpiler.numberNames.Reverse()));
             debugger.variables.Add("instruction", instruction.ToString());
+            debugger.variables.Add("instruction_line", instruction.line.ToString());
+            debugger.variables.Add("instruction_col", "0:0");
+            debugger.variables.Add("instruction_file", instruction.file);
             debugger.variables.Add("originalEffect", language);
 
-            bool debuggerWillBreak = ArgumentName.Any(x => effect.Contains($"{{{x}}}")) || effect.Contains("<eval ");
+            bool debuggerWillBreak = ArgumentName.Any(x => effect.Contains($"{{{x.data}}}")) || effect.Contains("<eval ");
             
             if (Azurite.debugger && debugger.ShouldBreak())
             {
@@ -488,29 +502,30 @@ namespace Azurite
                     type = forced_type[i - 1];
                 else
                     type = null;
+                
+                Parser.SExpression currentParameter = instruction.proto.ElementAt(i).Key;
 
 
                 List<string> expresionType = new List<string>();
-                if (effect.Contains("$" + instruction.proto.ElementAt(i).Key + "$"))
+                if (effect.Contains("$" + currentParameter.data + "$"))
                 {
                     // expresionType = FormalReborn.GetType(arguments[i]);
-                    effect = effect.Replace("$" + instruction.proto.ElementAt(i).Key + "$",
+                    effect = effect.Replace("$" + currentParameter.data + "$",
                     Transpiler.Convert($"({expresionType[expresionType.Count - 1]})", language));
                     // Convert name so user can use custom name for the type
                 }
-                if (effect.Contains("^" + instruction.proto.ElementAt(i).Key + "^"))
+                if (effect.Contains("^" + currentParameter.data + "^"))
                 {
-                    /* if (expresionType.Count == 0)
-                        expresionType = FormalReborn.GetType(arguments[i]);*/
-                    effect = effect.Replace("^" + instruction.proto.ElementAt(i).Key + "^",
-                    String.Join(" ", expresionType.Select(type => Transpiler.Convert($"({type})", language))));
+                    effect = effect.Replace("^" + currentParameter + "^",
+                    string.Join(" ", expresionType.Select(type => Transpiler.Convert($"({type})", language))));
                 }
 
-                if (Azurite.debugger && effect.Contains($"{{{instruction.proto.ElementAt(i).Key}}}"))
+                if (Azurite.debugger && effect.Contains($"{{{currentParameter.data}}}"))
                 {
                     if (debugger.ShouldBreak())
                     {
-                        debugger.variables["effect"] = effect.Replace($"{{{instruction.proto.ElementAt(i).Key}}}", $"\x1b[31m{{{instruction.proto.ElementAt(i).Key}}}\x1b[0m");
+                        debugger.variables["effect"] = effect.Replace($"{{{currentParameter.data}}}", $"\x1b[31m{{{currentParameter.data}}}\x1b[0m");
+                        debugger.variables["instruction_col"] =  currentParameter.column + ":" + currentParameter.length;
                         debugger.Breakpoint();
                     }
                 }
@@ -524,13 +539,13 @@ namespace Azurite
                         if (symbo == null)
                             throw new Azurite.Ezception(503, "call to function before definition");
                         forced_type = symbo.type;
-                        effect = effect.Replace($"@{instruction.proto.ElementAt(i).Key}@", (Lexer.GetSymbol(arguments[i].data).type.Count - 1).ToString());
+                        effect = effect.Replace($"@{currentParameter.data}@", (Lexer.GetSymbol(arguments[i].data).type.Count - 1).ToString());
                         goto case MATCH_LEVEL.STRICT;
                     case MATCH_LEVEL.STRICT:
-                        effect = effect.Replace("{" + instruction.proto.ElementAt(i).Key + "}", Transpiler.Convert("(" + arguments[i].data + ")", language, type));
+                        effect = effect.Replace("{" + currentParameter.data + "}", Transpiler.Convert("(" + arguments[i].data + ")", language, type));
                         break;
                     case MATCH_LEVEL.LIST:
-                        string name = instruction.proto.ElementAt(i).Key;
+                        string name = instruction.proto.ElementAt(i).Key.data;
                         Regex replacement = new Regex("{" + name + @" (\\}|[^}])*}");
                         // Get the separator, end and start of the list.
 
@@ -590,7 +605,7 @@ namespace Azurite
                         foreach (Parser.SExpression arg in args)
                         {
                             Parser.SExpression expr = parameters[0].Clone();
-                            expr.Map(_child => (_child.data == $"{instruction.proto.ElementAt(i).Key}") ? arg : _child);
+                            expr.Map(_child => (_child.data == $"{currentParameter.data}") ? arg : _child);
                             evaluate_arg.Add(Transpiler.Convert(MacroManager.Execute(expr), language));
                         }
 
@@ -598,25 +613,23 @@ namespace Azurite
                         effect = replacement.Replace(effect, start + string.Join(separator, evaluate_arg) + end);
                         break;
                     case MATCH_LEVEL.LIGHT:
-                        if (effect.Contains($"{{{instruction.proto.ElementAt(i).Key}}}"))
-                            effect = effect.Replace($"{{{instruction.proto.ElementAt(i).Key}}}",
+                        if (effect.Contains($"{{{currentParameter.data}}}"))
+                            effect = effect.Replace($"{{{currentParameter.data}}}",
                             arguments[i].data != null ?
                             Transpiler.Convert("(" + arguments[i].data + ")", language, type) :
                             Transpiler.Convert(arguments[i], language, type)
                             );
                         break;
                     case MATCH_LEVEL.PARTIAL:
-                        Match extract = new Regex(@"\|.+\|").Match(instruction.proto.ElementAt(i).Key);
+                        Match extract = new Regex(@"\|.+\|").Match(currentParameter.data);
                         string variable_name = extract.Value.Trim('|');
                         string argument_name = arguments[i].data;
                         string temp_argu = "";
-                        ArgumentName[i] = variable_name;
-                        arguments[i] = arguments[i].Clone();
-                        string instruction_name = instruction.proto.ElementAt(i).Key;
-                        int nombre_char_end = instruction_name.Length - (extract.Index + extract.Length);
+                        int nombre_char_end = currentParameter.data.Length - (extract.Index + extract.Length);
+                        
+                        Debug.Assert(nombre_char_end >= 0);
                         if (argument_name.Length - nombre_char_end - extract.Index != 0)
                             temp_argu = argument_name.Substring(extract.Index, (argument_name.Length - nombre_char_end - extract.Index));
-                        arguments[i].data = temp_argu;
 
                         if (effect.Contains($"{{{variable_name}}}"))
                             effect = effect.Replace($"{{{variable_name}}}", Transpiler.Convert("(" + temp_argu + ")", language, type));
@@ -665,7 +678,7 @@ namespace Azurite
                 }
             }
 
-            return new Instruction(null, null, null);
+            return new Instruction(null, null, null, -1, null);
         }
         #endregion
     }
